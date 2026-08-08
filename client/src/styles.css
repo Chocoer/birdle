@@ -184,6 +184,11 @@ body {
   flex-direction: column;
 }
 
+/* 联机视图需要并排放猜测表格和对手进度，容器加宽 */
+.app:has(.mp-room) {
+  max-width: 1000px;
+}
+
 button {
   font: inherit;
   cursor: pointer;
@@ -1067,14 +1072,26 @@ button {
 
 .mp-opponent-col {
   flex-shrink: 0;
-  width: 210px;
+  width: 240px;
   display: grid;
   gap: 12px;
   border-left: 1px solid var(--border);
   padding-left: 16px;
 }
 
-@media (max-width: 900px) {
+/* 联机中的猜测表格适度紧凑，保证 11 列完整显示不横向滚动 */
+.mp-room .guess-grid {
+  min-width: 640px;
+}
+
+.mp-room .cell-inner {
+  min-height: 46px;
+  min-width: 48px;
+  padding: 5px 3px;
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
   .mp-compare {
     flex-direction: column;
   }
