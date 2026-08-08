@@ -861,7 +861,9 @@ button {
 
 .mp-boards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 自己的面板占满整行，保证猜测表格 11 列完整显示不横向滚动；
+     对手面板（紧凑色块）排在下方 */
+  grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
 }
