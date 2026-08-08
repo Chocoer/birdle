@@ -20,6 +20,8 @@
   --sil-mid: #aec7a6;
   --sil-near: #7d9a76;
   --sil-bird: #66816d;
+  --sil-water: #b7d3cc;
+  --water-line: #8fb5ac;
 }
 
 [data-theme='dark'] {
@@ -43,6 +45,8 @@
   --sil-mid: #233827;
   --sil-near: #2f4a31;
   --sil-bird: #40614a;
+  --moon: #e9e3c4;
+  --star: #cfe0cd;
 }
 
 /* ===== 基础 ===== */
@@ -61,13 +65,26 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* ===== 自然风光背景层 ===== */
+/* ===== 自然风光背景层：浅色湿地 / 深色夜林，随主题切换 ===== */
 .backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+}
+
+[data-theme='light'] .scene-forest {
+  display: none;
+}
+
+[data-theme='dark'] .scene-wetland {
+  display: none;
 }
 
 .landscape {
@@ -95,6 +112,26 @@ body {
   color: var(--sil-near);
 }
 
+.sil-water {
+  fill: var(--sil-water);
+}
+
+.water-lines {
+  stroke: var(--water-line);
+  stroke-width: 3;
+  opacity: 0.7;
+}
+
+.moon {
+  fill: var(--moon);
+}
+
+.stars {
+  fill: var(--star);
+  opacity: 0.8;
+}
+
+/* 飞鸟 */
 .bird {
   position: absolute;
   color: var(--sil-bird);
@@ -102,27 +139,12 @@ body {
   animation: bird-drift linear infinite;
 }
 
-.b1 {
-  top: 12%;
-  width: 44px;
-  animation-duration: 70s;
-}
-
-.b2 {
-  top: 22%;
-  width: 30px;
-  opacity: 0.35;
-  animation-duration: 95s;
-  animation-delay: -40s;
-}
-
-.b3 {
-  top: 7%;
-  width: 22px;
-  opacity: 0.28;
-  animation-duration: 120s;
-  animation-delay: -80s;
-}
+.b1 { top: 12%; width: 44px; animation-duration: 70s; }
+.b2 { top: 22%; width: 30px; opacity: 0.35; animation-duration: 95s; animation-delay: -40s; }
+.b3 { top: 7%; width: 22px; opacity: 0.28; animation-duration: 120s; animation-delay: -80s; }
+.b4 { top: 17%; width: 36px; opacity: 0.4; animation-duration: 85s; animation-delay: -60s; }
+.b5 { top: 27%; width: 26px; opacity: 0.3; animation-duration: 105s; animation-delay: -20s; }
+.b6 { top: 15%; width: 18px; opacity: 0.25; animation-duration: 130s; animation-delay: -100s; }
 
 @keyframes bird-drift {
   from {
@@ -131,6 +153,26 @@ body {
   to {
     transform: translateX(110vw);
   }
+}
+
+/* 站在浅水里的鹭（仅湿地场景） */
+.heron {
+  position: absolute;
+  bottom: 8vh;
+  color: var(--sil-bird);
+}
+
+.h1 {
+  left: 58%;
+  width: 54px;
+  opacity: 0.55;
+}
+
+.h2 {
+  left: 20%;
+  width: 40px;
+  opacity: 0.4;
+  transform: scaleX(-1);
 }
 
 .app {
