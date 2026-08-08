@@ -924,6 +924,43 @@ button {
   background: var(--cell-gray);
 }
 
+/* 对战中：自己的表格为主，对手色块贴右侧并排（窄屏回退为上下堆叠） */
+.mp-compare {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.mp-mine {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.mp-opponent-col {
+  flex-shrink: 0;
+  width: 210px;
+  display: grid;
+  gap: 12px;
+  border-left: 1px solid var(--border);
+  padding-left: 16px;
+}
+
+@media (max-width: 900px) {
+  .mp-compare {
+    flex-direction: column;
+  }
+
+  .mp-opponent-col {
+    width: auto;
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+}
+
 .mp-final-score {
   margin: 0 0 16px;
   text-align: center;

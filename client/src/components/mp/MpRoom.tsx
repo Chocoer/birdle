@@ -245,54 +245,83 @@ export default function MpRoom() {
       <div className="mp-boards">
         {isPlayer && (
           <div className="mp-panel">
-            <div className="mp-panel-header">
-              <span className="mp-panel-title">你</span>
-              <span className="mp-panel-sub">
-                {myDone
-                  ? myProgress?.done === 'won'
-                    ? '已猜中，等待对手'
-                    : '次数用完，等待对手'
-                  : `剩余 ${MAX_GUESSES - myGuesses.length} 次`}
-              </span>
-            </div>
-            <SearchBox
-              disabled={guessDisabled}
-              difficulty={room.config.difficulty}
-              onSubmit={(bird) => submitGuess(bird.id)}
-            />
-            {myGuesses.length > 0 && (
-              <GuessGrid
-                guesses={myGuesses}
-                animatingRow={animatingRow}
-                conservation={conservation}
-              />
-            )}
-          </div>
-        )}
+            <div className="mp-compare">
+              <div className="mp-mine">
+                <div className="mp-panel-header">
+                  <span className="mp-panel-title">你</span>
+                  <span className="mp-panel-sub">
+                    {myDone
+                      ? myProgress?.done === 'won'
+                        ? '已猜中，等待对手'
+                        : '次数用完，等待对手'
+                      : `剩余 ${MAX_GUESSES - myGuesses.length} 次`}
+                  </span>
+                </div>
+                <SearchBox
+                  disabled={guessDisabled}
+                  difficulty={room.config.difficulty}
+                  onSubmit={(bird) => submitGuess(bird.id)}
+                />
+                {myGuesses.length > 0 && (
+                  <GuessGrid
+                    guesses={myGuesses}
+                    animatingRow={animatingRow}
+                    conservation={conservation}
+                  />
+                )}
+              </div>
 
-        {otherPlayers.map((p) => (
-          <div className="mp-panel" key={p.token}>
-            <div className="mp-panel-header">
-              <span className="mp-panel-title">{p.name}</span>
-              <OpponentStatus room={room} opponent={p} />
-            </div>
-            <div className="redacted-grid">
-              {(redacted[p.token] ?? []).length === 0 && (
-                <span className="mp-panel-sub">还没有猜测</span>
-              )}
-              {(redacted[p.token] ?? []).map((row, i) => (
-                <div className="redacted-row" key={i}>
-                  {CELL_KEYS.map((key) => (
-                    <span
-                      key={key}
-                      className={`redacted-cell ${row.cells[key]?.feedback ?? 'gray'}`}
-                    />
-                  ))}
+              {otherPlayers.map((p) => (
+                <div className="mp-opponent-col" key={p.token}>
+                  <div className="mp-panel-header">
+                    <span className="mp-panel-title">{p.name}</span>
+                    <OpponentStatus room={room} opponent={p} />
+                  </div>
+                  <div className="redacted-grid">
+                    {(redacted[p.token] ?? []).length === 0 && (
+                      <span className="mp-panel-sub">还没有猜测</span>
+                    )}
+                    {(redacted[p.token] ?? []).map((row, i) => (
+                      <div className="redacted-row" key={i}>
+                        {CELL_KEYS.map((key) => (
+                          <span
+                            key={key}
+                            className={`redacted-cell ${row.cells[key]?.feedback ?? 'gray'}`}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        ))}
+        )}
+
+        {!isPlayer &&
+          otherPlayers.map((p) => (
+            <div className="mp-panel" key={p.token}>
+              <div className="mp-panel-header">
+                <span className="mp-panel-title">{p.name}</span>
+                <OpponentStatus room={room} opponent={p} />
+              </div>
+              <div className="redacted-grid">
+                {(redacted[p.token] ?? []).length === 0 && (
+                  <span className="mp-panel-sub">还没有猜测</span>
+                )}
+                {(redacted[p.token] ?? []).map((row, i) => (
+                  <div className="redacted-row" key={i}>
+                    {CELL_KEYS.map((key) => (
+                      <span
+                        key={key}
+                        className={`redacted-cell ${row.cells[key]?.feedback ?? 'gray'}`}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
       </div>
 
       {room.spectators.length > 0 && (
