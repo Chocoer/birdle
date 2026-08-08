@@ -638,6 +638,29 @@ button {
   line-height: 1.9;
 }
 
+.mp-countdown {
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.mp-countdown.urgent {
+  color: #e5484d;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.lobby-queue-waiting {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
 .settings-options {
   display: grid;
   gap: 10px;

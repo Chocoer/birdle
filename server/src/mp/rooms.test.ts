@@ -4,6 +4,7 @@ import { Server as IoServer } from 'socket.io';
 import { io as ioc, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { attachGateway } from './gateway.js';
+import { MatchQueue } from './match.js';
 import { sweepRooms } from './room.js';
 import { MemoryRoomStore } from './store.js';
 import type { RoomPublic } from './types.js';
@@ -11,6 +12,7 @@ import type { RoomPublic } from './types.js';
 let httpServer: HttpServer;
 let io: IoServer;
 let store: MemoryRoomStore;
+let queue: MatchQueue;
 let cleanup: () => void;
 let port: number;
 
@@ -54,7 +56,8 @@ beforeAll(async () => {
   httpServer = createServer();
   io = new IoServer(httpServer);
   store = new MemoryRoomStore();
-  cleanup = attachGateway(io, { store, sweepIntervalMs: 50 });
+  queue = new MatchQueue();
+  cleanup = attachGateway(io, { store, queue, sweepIntervalMs: 50 });
   await new Promise<void>((resolve) => httpServer.listen(0, resolve));
   port = (httpServer.address() as AddressInfo).port;
 });
@@ -282,6 +285,92 @@ describe('多人对战流程', () => {
     expect(me.winner).toBe(T1);
 
     s1.close();
+  }, 15000);
+
+  it('局超时 2 分钟 → 流局公布答案，可开下一局', async () => {
+    const s1 = client();
+    await connected(s1);
+    const created = waitFor<{ roomCode: string }>(s1, 'room-created');
+    s1.emit('create-room', { playerName: 'A', token: T1, difficulty: 'easy', bestOf: 3 });
+    const { roomCode } = await created;
+    const s2 = client();
+    await connected(s2);
+    s2.emit('join-room', { roomCode, playerName: 'B', token: T2 });
+    await waitFor(s1, 'player-joined');
+    const started = waitFor<{ deadline: number; serverNow: number }>(s1, 'game-started');
+    s1.emit('player-ready', { roomCode });
+    s2.emit('player-ready', { roomCode });
+    const st = await started;
+    expect(st.deadline).toBeGreaterThan(st.serverNow);
+
+    // 把局开始时间拨到 121 秒前，等 sweep 判定超时流局
+    store.get(roomCode)!.round!.startedAt = Date.now() - 121_000;
+    const roundEnd = waitFor<{ winner: string; reason: string; answer: { name: string } }>(s1, 'round-end');
+    const re = await roundEnd;
+    expect(re.winner).toBe('draw');
+    expect(re.reason).toBe('timeout');
+    expect(re.answer.name).toBeTruthy();
+
+    // 双方 ready → 下一局正常开始
+    const next = waitFor<{ roundNumber: number }>(s1, 'game-started');
+    s1.emit('player-ready', { roomCode });
+    s2.emit('player-ready', { roomCode });
+    expect((await next).roundNumber).toBe(2);
+
+    s1.close();
+    s2.close();
+  }, 15000);
+
+  it('匹配：同偏好自动配对建房；不同偏好等放宽后配对', async () => {
+    // 同偏好配对
+    const s1 = client();
+    await connected(s1);
+    const q1 = waitFor(s1, 'queue-joined');
+    s1.emit('queue-join', { playerName: '甲', token: T1, difficulty: 'easy', bestOf: 3 });
+    await q1;
+
+    const s2 = client();
+    await connected(s2);
+    const m1 = waitFor<{ roomCode: string; self: { role: string } }>(s1, 'match-found');
+    const m2 = waitFor<{ roomCode: string; self: { role: string } }>(s2, 'match-found');
+    s2.emit('queue-join', { playerName: '乙', token: T2, difficulty: 'easy', bestOf: 3 });
+    const [r1, r2] = await Promise.all([m1, m2]);
+    expect(r1.roomCode).toBe(r2.roomCode);
+    expect(r1.self.role).toBe('player');
+    const room = store.get(r1.roomCode)!;
+    expect(room.players).toHaveLength(2);
+    expect(room.config).toMatchObject({ difficulty: 'easy', bestOf: 3 });
+
+    // 匹配建房后可以直接 ready 开局
+    const started = waitFor(s1, 'game-started');
+    s1.emit('player-ready', { roomCode: r1.roomCode });
+    s2.emit('player-ready', { roomCode: r1.roomCode });
+    await started;
+    s1.close();
+    s2.close();
+
+    // 不同偏好：不能立即配对；把等待时长拨过 30 秒放宽线后由 sweep 配对
+    const s3 = client();
+    await connected(s3);
+    s3.emit('queue-join', { playerName: '丙', token: T3, difficulty: 'hard', bestOf: 5 });
+    await waitFor(s3, 'queue-joined');
+    const s4 = client();
+    await connected(s4);
+    s4.emit('queue-join', { playerName: '丁', token: 'player-token-0004', difficulty: 'easy', bestOf: 3 });
+    await waitFor(s4, 'queue-joined');
+    // 先挂监听（只挂一次，避免遗留 once 监听器吃掉事件）
+    const m3 = waitFor<{ roomCode: string }>(s3, 'match-found', 5000);
+    const m4 = waitFor<{ roomCode: string }>(s4, 'match-found', 5000);
+    let matchedEarly = false;
+    void Promise.race([m3, m4]).then(() => (matchedEarly = true));
+    await new Promise((r) => setTimeout(r, 450));
+    expect(matchedEarly).toBe(false);
+    // 拨过放宽线
+    for (const e of queue.entries.values()) e.joinedAt = Date.now() - 31_000;
+    const [r3, r4] = await Promise.all([m3, m4]);
+    expect(r3.roomCode).toBe(r4.roomCode);
+    s3.close();
+    s4.close();
   }, 15000);
 
   it('sweepRooms：全员离开 5 分钟后销毁房间', () => {

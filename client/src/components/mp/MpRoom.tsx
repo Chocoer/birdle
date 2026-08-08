@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { getPhase, useMpStore } from '../../mpStore';
 import type { MpPlayer, RoomPublic } from '../../mpStore';
 import { useStore } from '../../store';
@@ -25,6 +26,27 @@ function OpponentStatus({ room, opponent }: { room: RoomPublic; opponent: MpPlay
   return (
     <span className="mp-panel-sub">
       {opponent.connected ? '🟢' : '🔴'} 已用 {progress?.count ?? 0}/{MAX_GUESSES} 次 · {status}
+    </span>
+  );
+}
+
+/** 局内 2 分钟倒计时（按服务端时钟校准） */
+function Countdown() {
+  const deadline = useMpStore((s) => s.roundDeadline);
+  const offset = useMpStore((s) => s.clockOffset);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!deadline) return;
+    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [deadline]);
+  if (!deadline) return null;
+  const remain = Math.max(0, Math.ceil((deadline - (Date.now() + offset)) / 1000));
+  const mm = Math.floor(remain / 60);
+  const ss = String(remain % 60).padStart(2, '0');
+  return (
+    <span className={`mp-countdown${remain <= 30 ? ' urgent' : ''}`}>
+      ⏱ {mm}:{ss}
     </span>
   );
 }
@@ -165,7 +187,9 @@ export default function MpRoom() {
   if (phase === 'roundEnd' && roundResult) {
     const banner =
       roundResult.winner === 'draw'
-        ? '本局流局，都未猜中'
+        ? roundResult.reason === 'timeout'
+          ? '⏰ 时间到！本局流局，都未猜中'
+          : '本局流局，都未猜中'
         : roundResult.winner === guestId
           ? '🎉 你赢下本局'
           : `${roundResult.winnerName} 赢下本局`;
@@ -208,7 +232,8 @@ export default function MpRoom() {
     <div className="mp-room">
       <div className="mp-round-header">
         <span>
-          第 {room.roundNumber} 局 / BO{room.config.bestOf} · {DIFFICULTY_LABELS[room.config.difficulty]}
+          第 {room.roundNumber} 局 / BO{room.config.bestOf} · {DIFFICULTY_LABELS[room.config.difficulty]}{' '}
+          <Countdown />
         </span>
         <span className="mp-score">
           {isPlayer

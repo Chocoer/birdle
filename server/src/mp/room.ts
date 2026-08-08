@@ -9,6 +9,8 @@ import type { MpPlayer, RedactedRow, Room, RoomConfig, RoomPublic, Round } from 
 export const RECONNECT_GRACE_MS = 30_000;
 /** 全员离开后房间保留时间（毫秒） */
 export const EMPTY_ROOM_TTL_MS = 5 * 60_000;
+/** 每局猜题时间限制（毫秒），超时流局 */
+export const ROUND_TIME_LIMIT_MS = 120_000;
 
 /** 去掉易混淆字符（0/O/1/I/L） */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -296,16 +298,26 @@ export function reconnect(
   return { ok: false, error: 'reconnect_failed' };
 }
 
-/** 定期清扫：断线超时判负、空房间销毁。返回需要广播的事件 */
+/** 定期清扫：断线超时判负、局超时流局、空房间销毁。返回需要广播的事件 */
 export interface SweepEvent {
   code: string;
-  type: 'forfeit' | 'room_destroyed';
+  type: 'forfeit' | 'room_destroyed' | 'round_timeout';
   token?: string;
 }
 
 export function sweepRooms(store: MemoryRoomStore, now: number): SweepEvent[] {
   const events: SweepEvent[] = [];
   for (const room of store.values()) {
+    // 局内倒计时：进行中且超时 → 流局
+    if (
+      room.status === 'playing' &&
+      room.round &&
+      room.round.winner == null &&
+      now - room.round.startedAt > ROUND_TIME_LIMIT_MS
+    ) {
+      finishRound(room, 'draw');
+      events.push({ code: room.code, type: 'round_timeout' });
+    }
     for (const p of [...room.players]) {
       if (p.disconnectedAt != null && now - p.disconnectedAt > RECONNECT_GRACE_MS) {
         forfeit(room, p.token);
@@ -372,6 +384,7 @@ export function roomPublic(room: Room): RoomPublic {
     matchWinner: room.matchWinner,
     roundProgress: round ? roundProgress : null,
     redactedGuesses,
+    roundDeadline: round && round.winner == null ? round.startedAt + ROUND_TIME_LIMIT_MS : null,
     lastAnswer,
   };
 }

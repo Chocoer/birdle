@@ -39,6 +39,7 @@ export interface RoomPublic {
   matchWinner: string | null;
   roundProgress: Record<string, { count: number; done?: 'won' | 'out' }> | null;
   redactedGuesses: Record<string, RedactedRow[]>;
+  roundDeadline: number | null;
   lastAnswer: Bird | null;
 }
 
@@ -46,6 +47,7 @@ export interface RoundResult {
   roundNumber: number;
   winner: string;
   winnerName: string;
+  reason?: 'won' | 'draw' | 'timeout';
   answer: Bird;
   roundWins: Record<string, number>;
 }
@@ -82,6 +84,12 @@ interface MpStore {
   animatingRow: number;
   roundResult: RoundResult | null;
   matchResult: MatchResult | null;
+  /** 当前局截止时间戳（服务端毫秒），无局为 null */
+  roundDeadline: number | null;
+  /** 服务端-客户端时钟偏移（用于倒计时校准） */
+  clockOffset: number;
+  /** 匹配队列状态 */
+  queueStatus: 'idle' | 'queued';
   init: () => void;
   createRoom: (opts: {
     playerName: string;
@@ -89,6 +97,8 @@ interface MpStore {
     bestOf: 3 | 5;
   }) => void;
   joinRoom: (roomCode: string, playerName: string) => void;
+  joinQueue: (opts: { playerName: string; difficulty: Difficulty; bestOf: 3 | 5 }) => void;
+  leaveQueue: () => void;
   startGame: () => void;
   ready: () => void;
   submitGuess: (birdId: number) => void;
@@ -130,6 +140,9 @@ export const useMpStore = create<MpStore>((set, get) => ({
   animatingRow: -1,
   roundResult: null,
   matchResult: null,
+  roundDeadline: null,
+  clockOffset: 0,
+  queueStatus: 'idle',
 
   init: () => {
     if (initialized) return;
@@ -179,7 +192,7 @@ export const useMpStore = create<MpStore>((set, get) => ({
       else toast('对手离开了房间');
     });
 
-    socket.on('game-started', (p: { roundNumber: number; bestOf: number; maxGuesses: number }) => {
+    socket.on('game-started', (p: { roundNumber: number; bestOf: number; maxGuesses: number; deadline: number; serverNow: number }) => {
       if (flipTimer) clearTimeout(flipTimer);
       set({
         roundResult: null,
@@ -187,9 +200,31 @@ export const useMpStore = create<MpStore>((set, get) => ({
         myGuesses: [],
         redacted: {},
         animatingRow: -1,
+        roundDeadline: p.deadline,
+        clockOffset: p.serverNow - Date.now(),
       });
       toast(`第 ${p.roundNumber} 局开始`);
     });
+
+    socket.on('match-found', (p: { roomCode: string; room: RoomPublic; self: { token: string; role: MpRole } }) => {
+      rememberRoom(p.roomCode);
+      set({
+        room: p.room,
+        selfRole: p.self.role,
+        queueStatus: 'idle',
+        roundResult: null,
+        matchResult: null,
+        myGuesses: [],
+        redacted: {},
+        animatingRow: -1,
+        roundDeadline: null,
+      });
+      useStore.getState().setView('mproom');
+      toast('匹配成功，进入房间！');
+    });
+
+    socket.on('queue-joined', () => set({ queueStatus: 'queued' }));
+    socket.on('queue-left', () => set({ queueStatus: 'idle' }));
 
     socket.on(
       'new-guess',
@@ -213,6 +248,7 @@ export const useMpStore = create<MpStore>((set, get) => ({
     socket.on('round-end', (p: RoundResult) => {
       set((s) => ({
         roundResult: p,
+        roundDeadline: null,
         room: s.room ? { ...s.room, roundWins: p.roundWins } : s.room,
       }));
     });
@@ -221,6 +257,7 @@ export const useMpStore = create<MpStore>((set, get) => ({
       forgetRoom();
       set((s) => ({
         matchResult: p,
+        roundDeadline: null,
         room: s.room ? { ...s.room, roundWins: p.roundWins, matchWinner: p.winner } : s.room,
       }));
     });
@@ -234,6 +271,7 @@ export const useMpStore = create<MpStore>((set, get) => ({
           redacted: p.room.redactedGuesses ?? {},
           selfRole: p.self.role,
           animatingRow: -1,
+          roundDeadline: p.room.roundDeadline ?? null,
         });
         useStore.getState().setView('mproom');
         toast('已恢复房间');
@@ -259,6 +297,16 @@ export const useMpStore = create<MpStore>((set, get) => ({
   joinRoom: (roomCode, playerName) => {
     get().init();
     getSocket().emit('join-room', { roomCode, playerName, token: selfToken() });
+  },
+
+  joinQueue: ({ playerName, difficulty, bestOf }) => {
+    get().init();
+    getSocket().emit('queue-join', { playerName, token: selfToken(), difficulty, bestOf });
+  },
+
+  leaveQueue: () => {
+    getSocket().emit('queue-leave');
+    set({ queueStatus: 'idle' });
   },
 
   startGame: () => {
@@ -295,6 +343,7 @@ export const useMpStore = create<MpStore>((set, get) => ({
       animatingRow: -1,
       roundResult: null,
       matchResult: null,
+      roundDeadline: null,
     });
   },
 }));

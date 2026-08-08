@@ -69,6 +69,8 @@ export interface RoomPublic {
   roundProgress: Record<string, { count: number; done?: 'won' | 'out' }> | null;
   /** 脱敏后的他人猜测（viewer 本人除外，由调用方单独发全量） */
   redactedGuesses: Record<string, RedactedRow[]>;
+  /** 当前局的截止时间戳（毫秒，进行中才有） */
+  roundDeadline: number | null;
   /** 结算后公布的答案 */
   lastAnswer: Bird | null;
 }
