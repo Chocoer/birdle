@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import Backdrop from './components/Backdrop';
 import Game from './components/Game';
 import Home from './components/Home';
 import Lobby from './components/mp/Lobby';
@@ -41,6 +42,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <Backdrop />
       <header className="nav">
         <button className="nav-title" onClick={goHome}>
           🐦 鹬一把
