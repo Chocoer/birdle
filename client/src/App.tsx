@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
+import { Bird, BookOpen, Moon, Sun, User } from 'lucide-react';
 import Backdrop from './components/Backdrop';
 import Game from './components/Game';
 import Home from './components/Home';
+import Me from './components/Me';
 import Lobby from './components/mp/Lobby';
 import MpRoom from './components/mp/MpRoom';
 import Rules from './components/Rules';
-import Settings from './components/Settings';
-import Stats from './components/Stats';
 import { useMpStore } from './mpStore';
 import { useStore } from './store';
 
@@ -45,17 +45,17 @@ export default function App() {
       <Backdrop />
       <header className="nav">
         <button className="nav-title" onClick={goHome}>
-          🐦 鹬一把
+          <Bird size={22} strokeWidth={2.2} />
+          鹬一把
         </button>
         <div className="nav-actions">
-          <button className="btn btn-ghost" onClick={() => setView('rules')}>
-            规则
+          <button className="btn btn-ghost" onClick={() => setView('rules')} title="游戏规则">
+            <BookOpen size={16} />
+            <span className="nav-btn-text">规则</span>
           </button>
-          <button className="btn btn-ghost" onClick={() => setView('stats')}>
-            统计
-          </button>
-          <button className="btn btn-ghost" onClick={() => setView('settings')}>
-            设置
+          <button className="btn btn-ghost" onClick={() => setView('me')} title="我的战绩与设置">
+            <User size={16} />
+            <span className="nav-btn-text">我的</span>
           </button>
           <button
             className="btn btn-ghost"
@@ -63,17 +63,15 @@ export default function App() {
             aria-label={theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'}
             title={theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'}
           >
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </div>
       </header>
       <main className="main">
         {view === 'game' && game ? (
           <Game />
-        ) : view === 'stats' ? (
-          <Stats />
-        ) : view === 'settings' ? (
-          <Settings />
+        ) : view === 'me' ? (
+          <Me />
         ) : view === 'rules' ? (
           <Rules />
         ) : view === 'lobby' ? (

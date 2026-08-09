@@ -9,7 +9,6 @@ const OPTIONS: { value: Conservation; name: string; desc: string }[] = [
 export default function Settings() {
   const conservation = useStore((s) => s.conservation);
   const setConservation = useStore((s) => s.setConservation);
-  const setView = useStore((s) => s.setView);
 
   return (
     <div className="settings">
@@ -38,9 +37,6 @@ export default function Settings() {
           ))}
         </div>
       </section>
-      <button className="btn" onClick={() => setView('home')}>
-        返回首页
-      </button>
     </div>
   );
 }

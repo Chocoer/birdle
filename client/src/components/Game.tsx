@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Trophy } from 'lucide-react';
 import { useStore } from '../store';
 import type { GameState } from '../store';
 import type { Feedback } from '../types';
@@ -77,8 +78,12 @@ export default function Game() {
             conservation={game.conservation}
           />
           <p className="legend">
-            <span>🟩 完全一致</span>
-            <span>🟨 接近</span>
+            <span>
+              <i className="swatch green" /> 完全一致
+            </span>
+            <span>
+              <i className="swatch yellow" /> 接近
+            </span>
             <span>↑↓ 答案更高或更低</span>
           </p>
         </>
@@ -87,7 +92,9 @@ export default function Game() {
       {over && (
         <div className="game-result">
           {game.status === 'won' && (
-            <p className="result-banner won">🎉 你用 {game.guesses.length} 次猜中了！</p>
+            <p className="result-banner won">
+              <Trophy size={18} /> 你用 {game.guesses.length} 次猜中了！
+            </p>
           )}
           {game.status === 'lost' && (
             <p className="result-banner lost">

@@ -1,5 +1,13 @@
 /* ===== 主题变量 ===== */
+@font-face {
+  font-family: 'KuaiLe';
+  src: url('/fonts/kuaile-subset.woff2') format('woff2');
+  font-display: swap;
+}
+
 :root {
+  /* 大标题展示字体：快乐体子集 → 系统圆体兜底 */
+  --font-display: 'KuaiLe', 'Yuanti SC', 'YouYuan', '幼圆', 'PingFang SC', sans-serif;
   --bg: #f4f1e8;
   --surface: #fdfcf7;
   --text: #2c3a30;
@@ -199,41 +207,74 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
   margin-bottom: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
 }
 
 .nav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: none;
   border: none;
-  color: var(--text);
-  font-size: 20px;
+  color: var(--accent);
+  font-size: 21px;
   font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: 2px;
   padding: 4px 0;
+  transition: opacity 0.15s ease;
+}
+
+.nav-title:hover {
+  opacity: 0.75;
 }
 
 .nav-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+}
+
+.nav-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .btn {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 7px 14px;
   background: var(--surface);
   color: var(--text);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.18s ease;
 }
 
 .btn:hover {
   border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn-ghost {
@@ -249,11 +290,13 @@ button {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .main {
@@ -267,14 +310,18 @@ button {
 }
 
 .home-title {
-  font-size: 44px;
+  font-size: 52px;
   margin: 0 0 8px;
-  letter-spacing: 4px;
+  letter-spacing: 8px;
+  font-family: var(--font-display);
+  color: var(--accent);
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .home-subtitle {
   color: var(--muted);
   margin: 0 0 36px;
+  letter-spacing: 4px;
 }
 
 .mode-cards {
@@ -296,12 +343,17 @@ button {
   border-radius: 14px;
   color: var(--text);
   box-shadow: var(--shadow);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .mode-card:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   border-color: var(--accent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.mode-card:hover:not(:disabled) .mode-card-icon {
+  transform: scale(1.15);
 }
 
 .mode-card:disabled {
@@ -311,6 +363,7 @@ button {
 
 .mode-card-icon {
   font-size: 34px;
+  transition: transform 0.2s ease;
 }
 
 .mode-card-name {
@@ -659,14 +712,16 @@ button {
 
 /* ===== 统计页 ===== */
 .stats-title {
-  margin: 0 0 20px;
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  letter-spacing: 2px;
 }
 
 .stats-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 12px;
-  margin-bottom: 28px;
+  margin: 14px 0 28px;
 }
 
 .stat-card {
@@ -742,6 +797,8 @@ button {
 
 .settings-title {
   margin: 0 0 20px;
+  font-family: var(--font-display);
+  letter-spacing: 2px;
 }
 
 .settings-section {
@@ -770,6 +827,238 @@ button {
   line-height: 1.9;
 }
 
+/* ===== 通用小元素：状态点 / 颜色样块 / 旋转动画 ===== */
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot.online {
+  background: var(--cell-green);
+}
+
+.dot.offline {
+  background: #e5484d;
+}
+
+.swatch {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  vertical-align: -2px;
+}
+
+.swatch.green {
+  background: var(--cell-green);
+}
+
+.swatch.yellow {
+  background: var(--cell-yellow);
+}
+
+.swatch.gray {
+  background: var(--cell-gray);
+}
+
+.spin {
+  animation: spin 1.2s linear infinite;
+  vertical-align: -2px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== 规则页分区块 ===== */
+.rules-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.rules-card .settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.rules-chips {
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.rules-chips li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.rules-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 64px;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chip-green {
+  background: color-mix(in srgb, var(--cell-green) 16%, transparent);
+  color: var(--cell-green);
+}
+
+.chip-yellow {
+  background: color-mix(in srgb, var(--cell-yellow) 18%, transparent);
+  color: var(--cell-yellow);
+}
+
+.chip-gray {
+  background: color-mix(in srgb, var(--cell-gray) 22%, transparent);
+  color: var(--muted);
+}
+
+.chip-arrow {
+  background: var(--cell-neutral);
+  color: var(--text);
+}
+
+.chip-diff {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.rules-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rules-mini-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.rules-mini-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.rules-mini-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 「我的」页面分区线 */
+.me-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+/* 文本中的内联图标对齐 */
+.result-banner svg,
+.mp-countdown svg,
+.lobby-hint svg,
+.mp-player-status svg,
+.rules-list svg,
+.recent-result svg {
+  vertical-align: -2px;
+}
+
+/* 战绩小注与最近战绩 */
+.stat-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.recent-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.recent-game {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.recent-result {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.recent-result.won {
+  background: var(--cell-green);
+}
+
+.recent-result.lost {
+  background: var(--cell-gray);
+}
+
+.recent-summary {
+  font-weight: 600;
+}
+
+.recent-diff {
+  font-size: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.recent-date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dist-zero {
+  font-size: 12px;
+  color: var(--muted);
+  padding-left: 6px;
+}
+
+@media (max-width: 560px) {
+  .rules-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mp-countdown {
   margin-left: 8px;
   font-variant-numeric: tabular-nums;
@@ -791,6 +1080,14 @@ button {
   display: grid;
   gap: 8px;
   justify-items: start;
+}
+
+.lobby-mode-cards {
+  margin: 16px auto 24px;
+}
+
+.lobby-goto-match {
+  padding: 2px 8px;
 }
 
 .settings-options {
@@ -837,6 +1134,8 @@ button {
 
 .lobby-title {
   margin: 0 0 4px;
+  font-family: var(--font-display);
+  letter-spacing: 2px;
 }
 
 .lobby-hint {
@@ -1128,6 +1427,18 @@ button {
   z-index: 50;
   max-width: 86vw;
   text-align: center;
+  animation: toast-in 0.25s ease;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 /* ===== 小屏适配 ===== */

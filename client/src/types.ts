@@ -81,6 +81,7 @@ export interface StatsData {
   guessDistribution: Record<string, number>;
   currentStreak: number;
   maxStreak: number;
+  recentGames: { date: string; difficulty: string; won: boolean; guessCount: number }[];
 }
 
 export const IUCN_LABELS: Record<Iucn, string> = {

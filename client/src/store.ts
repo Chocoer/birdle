@@ -8,7 +8,7 @@ import {
 } from './api';
 import type { Bird, Conservation, Difficulty, GameStatus, GuessRow, StatsData } from './types';
 
-export type View = 'home' | 'game' | 'stats' | 'settings' | 'rules' | 'lobby' | 'mproom';
+export type View = 'home' | 'game' | 'me' | 'rules' | 'lobby' | 'mproom';
 export type Theme = 'light' | 'dark';
 
 const GUEST_KEY = 'birdle-guestId';

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, Timer, TimerOff, Trophy } from 'lucide-react';
 import { getPhase, useMpStore } from '../../mpStore';
 import type { MpPlayer, RoomPublic } from '../../mpStore';
 import { useStore } from '../../store';
@@ -25,7 +26,8 @@ function OpponentStatus({ room, opponent }: { room: RoomPublic; opponent: MpPlay
   const status = progress?.done === 'won' ? '已猜中' : progress?.done === 'out' ? '已出局' : '猜测中';
   return (
     <span className="mp-panel-sub">
-      {opponent.connected ? '🟢' : '🔴'} 已用 {progress?.count ?? 0}/{MAX_GUESSES} 次 · {status}
+      <i className={`dot ${opponent.connected ? 'online' : 'offline'}`} /> 已用{' '}
+      {progress?.count ?? 0}/{MAX_GUESSES} 次 · {status}
     </span>
   );
 }
@@ -46,7 +48,7 @@ function Countdown() {
   const ss = String(remain % 60).padStart(2, '0');
   return (
     <span className={`mp-countdown${remain <= 30 ? ' urgent' : ''}`}>
-      ⏱ {mm}:{ss}
+      <Timer size={14} /> {mm}:{ss}
     </span>
   );
 }
@@ -117,8 +119,14 @@ export default function MpRoom() {
                 {p.token === guestId && <span className="mp-badge self">你</span>}
               </span>
               <span className="mp-player-status">
-                {p.connected ? '🟢 在线' : '🔴 掉线'}
-                {p.ready && ' · ✓ 已准备'}
+                <i className={`dot ${p.connected ? 'online' : 'offline'}`} />{' '}
+                {p.connected ? '在线' : '掉线'}
+                {p.ready && (
+                  <>
+                    {' · '}
+                    <Check size={12} /> 已准备
+                  </>
+                )}
               </span>
             </div>
           ))}
@@ -162,11 +170,13 @@ export default function MpRoom() {
           ? '对手掉线判负，你已获胜'
           : `${matchResult.winnerName} 获胜（对方掉线判负）`
         : iWon
-          ? '🎉 你已获胜'
+          ? '你已获胜'
           : `${matchResult.winnerName} 获胜`;
     return (
       <div className="mp-room">
-        <p className={`result-banner ${iWon ? 'won' : 'lost'}`}>{banner}</p>
+        <p className={`result-banner ${iWon ? 'won' : 'lost'}`}>
+          {iWon && matchResult.reason !== 'forfeit' && <Trophy size={18} />} {banner}
+        </p>
         <p className="mp-final-score">
           最终比分 {isPlayer ? scoreText(room, matchResult.roundWins, guestId) : ''}
           {!isPlayer &&
@@ -185,19 +195,22 @@ export default function MpRoom() {
   }
 
   if (phase === 'roundEnd' && roundResult) {
-    const banner =
-      roundResult.winner === 'draw'
-        ? roundResult.reason === 'timeout'
-          ? '⏰ 时间到！本局流局，都未猜中'
-          : '本局流局，都未猜中'
-        : roundResult.winner === guestId
-          ? '🎉 你赢下本局'
-          : `${roundResult.winnerName} 赢下本局`;
+    const isDraw = roundResult.winner === 'draw';
+    const isTimeout = isDraw && roundResult.reason === 'timeout';
+    const iWonRound = roundResult.winner === guestId;
+    const banner = isDraw
+      ? isTimeout
+        ? '时间到！本局流局，都未猜中'
+        : '本局流局，都未猜中'
+      : iWonRound
+        ? '你赢下本局'
+        : `${roundResult.winnerName} 赢下本局`;
     const myReady = me?.ready ?? false;
     return (
       <div className="mp-room">
-        <p className={`result-banner ${roundResult.winner === guestId ? 'won' : 'lost'}`}>
-          {banner}
+        <p className={`result-banner ${iWonRound ? 'won' : 'lost'}`}>
+          {isTimeout && <TimerOff size={18} />}
+          {iWonRound && <Trophy size={18} />} {banner}
         </p>
         <p className="mp-final-score">
           局分 {isPlayer ? scoreText(room, roundResult.roundWins, guestId) : ''}

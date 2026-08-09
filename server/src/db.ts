@@ -37,6 +37,13 @@ export function recordGame(r: GameRecord): void {
   ).run(r.guestId, r.difficulty, r.birdId, r.won ? 1 : 0, r.guessCount, r.date);
 }
 
+export interface RecentGame {
+  date: string;
+  difficulty: string;
+  won: boolean;
+  guessCount: number;
+}
+
 export interface Stats {
   played: number;
   wins: number;
@@ -44,6 +51,7 @@ export interface Stats {
   guessDistribution: Record<number, number>;
   currentStreak: number;
   maxStreak: number;
+  recentGames: RecentGame[];
 }
 
 export function getStats(guestId: string): Stats {
@@ -65,6 +73,12 @@ export function getStats(guestId: string): Stats {
     if (streak > maxStreak) maxStreak = streak;
   }
 
+  const recentGames = (
+    db
+      .prepare('SELECT date, difficulty, won, guess_count FROM games WHERE guest_id = ? ORDER BY id DESC LIMIT 10')
+      .all(guestId) as unknown as { date: string; difficulty: string; won: number; guess_count: number }[]
+  ).map((r) => ({ date: r.date, difficulty: r.difficulty, won: r.won === 1, guessCount: r.guess_count }));
+
   return {
     played,
     wins,
@@ -72,5 +86,6 @@ export function getStats(guestId: string): Stats {
     guessDistribution,
     currentStreak: streak,
     maxStreak,
+    recentGames,
   };
 }
