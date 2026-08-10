@@ -4226,7 +4226,7 @@
   "family": "鸻科",
   "genus": "斑鸻属",
   "lengthCm": 29,
-  "wingspanCm": 75,
+  "wingspanCm": 64,
   "residence": [
    "旅鸟"
   ],
@@ -4303,7 +4303,7 @@
   "family": "鹬科",
   "genus": "滨鹬属",
   "lengthCm": 14,
-  "wingspanCm": 32,
+  "wingspanCm": 30,
   "residence": [
    "旅鸟"
   ],
@@ -4504,7 +4504,7 @@
   "family": "鹬科",
   "genus": "鹬属",
   "lengthCm": 32,
-  "wingspanCm": 65,
+  "wingspanCm": 60,
   "residence": [
    "旅鸟"
   ],
@@ -4708,7 +4708,7 @@
   "family": "鹭科",
   "genus": "绿鹭属",
   "lengthCm": 43,
-  "wingspanCm": 65,
+  "wingspanCm": 62,
   "residence": [
    "夏候鸟"
   ],
@@ -5511,8 +5511,7 @@
   "lengthCm": 25,
   "wingspanCm": 32,
   "residence": [
-   "留鸟",
-   "夏候鸟"
+   "旅鸟"
   ],
   "habitats": [
    "农田",
@@ -7702,8 +7701,7 @@
   "lengthCm": 13,
   "wingspanCm": 22,
   "residence": [
-   "旅鸟",
-   "夏候鸟"
+   "旅鸟"
   ],
   "habitats": [
    "山地",
@@ -9001,7 +8999,7 @@
   "diet": [
    "肉食"
   ],
-  "iucn": "LC",
+  "iucn": "VU",
   "endemic": false,
   "difficulty": "hard",
   "chinaProtection": "国家二级"
@@ -9170,7 +9168,7 @@
   "family": "鸥科",
   "genus": "浮鸥属",
   "lengthCm": 24,
-  "wingspanCm": 70,
+  "wingspanCm": 63,
   "residence": [
    "旅鸟"
   ],

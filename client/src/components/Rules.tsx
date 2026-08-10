@@ -132,9 +132,15 @@ export default function Rules() {
 
       <section className="settings-section rules-card">
         <h3 className="settings-section-title">数据与反馈</h3>
+        <p>题库收录 435 种在北京有野生记录的鸟类，数据持续校订中。各字段来源：</p>
+        <ul className="rules-list">
+          <li><strong>中文名 / 学名 / 目科属分类</strong>——《中国鸟类分类与分布名录》（郑光美主编）</li>
+          <li><strong>北京分布与居留类型</strong>——《北京鸟类名录》及公开观鸟记录</li>
+          <li><strong>IUCN 濒危等级</strong>——IUCN 红色名录（iucnredlist.org）</li>
+          <li><strong>国家重点保护 / 三有</strong>——《国家重点保护野生动物名录》（2021）、《有重要生态、科学、社会价值的陆生野生动物名录》（2023）</li>
+          <li><strong>体长 / 翼展</strong>——常见鸟类图鉴的典型范围中值，仅供参考</li>
+        </ul>
         <p>
-          题库收录 435 种北京有野生记录的鸟类，分类、居留、保护等级按《中国鸟类分类与分布名录》、
-          IUCN 红色名录和国家重点保护名录整理，体长翼展为典型值。数据持续校订中——
           如果你发现某只鸟的信息有误，欢迎在
           <a href="https://github.com/Suyuanzhe/birdle/issues" target="_blank" rel="noreferrer"> GitHub Issues </a>
           反馈，我们会尽快修正。
