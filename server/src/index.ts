@@ -1,16 +1,20 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server as IoServer } from 'socket.io';
-import { getStats } from './db.js';
+import { authIdentity, authRouter } from './auth/routes.js';
+import { db } from './db/index.js';
 import { poolOf, revealAnswer, startGame, submitGuess } from './game/session.js';
 import { attachGateway } from './mp/gateway.js';
 import type { Difficulty } from './types.js';
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
+app.use('/api/auth', authRouter);
 
 const GUEST_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
 const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
@@ -74,7 +78,7 @@ app.post('/api/game/:id/guess', (req, res) => {
   if (typeof birdId !== 'number' || !Number.isInteger(birdId)) {
     return res.status(400).json({ error: 'invalid_bird_id' });
   }
-  const outcome = submitGuess(req.params.id, req.body.guestId, birdId);
+  const outcome = submitGuess(req.params.id, req.body.guestId, birdId, authIdentity(req) ?? undefined);
   if (!outcome.ok) return res.status(GUESS_ERROR_STATUS[outcome.error]).json({ error: outcome.error });
   res.json(outcome.game);
 });
@@ -82,16 +86,19 @@ app.post('/api/game/:id/guess', (req, res) => {
 // --- 看答案（对局结束并揭晓，记为负场）---
 app.post('/api/game/:id/reveal', (req, res) => {
   if (!validGuestId(req.body?.guestId)) return res.status(400).json({ error: 'invalid_guest_id' });
-  const outcome = revealAnswer(req.params.id, req.body.guestId);
+  const outcome = revealAnswer(req.params.id, req.body.guestId, authIdentity(req) ?? undefined);
   if (!outcome.ok) return res.status(GUESS_ERROR_STATUS[outcome.error]).json({ error: outcome.error });
   res.json(outcome.game);
 });
 
-// --- 个人战绩 ---
-app.get('/api/stats', (req, res) => {
+// --- 个人战绩：登录用户优先按账号查 ---
+app.get('/api/stats', async (req, res) => {
+  const identity = authIdentity(req);
   const guestId = String(req.query.guestId ?? '');
-  if (!GUEST_ID_RE.test(guestId)) return res.status(400).json({ error: 'invalid_guest_id' });
-  res.json(getStats(guestId));
+  if (!identity && !GUEST_ID_RE.test(guestId)) {
+    return res.status(400).json({ error: 'invalid_guest_id' });
+  }
+  res.json(await db.getStats(identity ?? guestId));
 });
 
 // --- 生产模式：托管前端构建产物 ---

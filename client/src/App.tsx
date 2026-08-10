@@ -34,6 +34,7 @@ export default function App() {
 
   useEffect(() => {
     useMpStore.getState().init();
+    void useStore.getState().loadMe();
   }, []);
 
   const goHome = () => {

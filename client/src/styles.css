@@ -1021,6 +1021,56 @@ button {
   margin: 28px 0;
 }
 
+/* ===== 账号区 ===== */
+.account-card {
+  display: grid;
+  gap: 12px;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.account-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--cell-neutral);
+  border-radius: 9px;
+  padding: 3px;
+  width: fit-content;
+}
+
+.account-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 5px 18px;
+  border-radius: 7px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.account-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.account-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.account-error {
+  margin: 0;
+  font-size: 13px;
+  color: #e5484d;
+}
+
 /* 文本中的内联图标对齐 */
 .result-banner svg,
 .mp-countdown svg,

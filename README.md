@@ -40,7 +40,11 @@
 |---|---|
 | 前端 | React 18 + Vite + TypeScript + Zustand + Socket.IO Client |
 | 后端 | Node.js + Express + Socket.IO + TypeScript |
-| 数据库 | SQLite（Node 内置 `node:sqlite`，零原生依赖） |
+| 数据库 | 本地 SQLite（Node 内置 `node:sqlite`）/ 生产 Postgres（`DATABASE_URL` 切换） |
+
+## 账号系统
+
+可选登录（不登录也能玩）：用户名 + 密码注册，bcrypt 哈希、JWT HttpOnly Cookie 会话（30 天）。登录/注册时自动把当前浏览器的游客战绩并入账号。生产环境需要两个环境变量：`DATABASE_URL`（Postgres 连接串，如 Neon）和 `JWT_SECRET`（≥32 字节随机串），外加 `NODE_ENV=production`（开启安全 Cookie）。
 | 测试 | Vitest |
 
 ## 快速开始

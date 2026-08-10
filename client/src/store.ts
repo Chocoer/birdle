@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { applySound } from './audio';
 import {
   ApiError,
+  authLogin,
+  authLogout,
+  authMe,
+  authRegister,
   getStats,
   revealAnswer as apiRevealAnswer,
   startGame as apiStartGame,
@@ -56,6 +60,8 @@ interface Store {
   guestId: string;
   conservation: Conservation;
   soundOn: boolean;
+  /** 登录用户名，未登录为 null */
+  user: string | null;
   game: GameState | null;
   stats: StatsData | null;
   statsLoading: boolean;
@@ -70,6 +76,10 @@ interface Store {
   syncSystemTheme: () => void;
   setConservation: (conservation: Conservation) => void;
   toggleSound: () => void;
+  loadMe: () => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   showToast: (message: string) => void;
   dismissToast: () => void;
   startGame: (difficulty: Difficulty) => Promise<void>;
@@ -87,6 +97,7 @@ export const useStore = create<Store>((set, get) => ({
   guestId: loadGuestId(),
   conservation: initialConservation(),
   soundOn: localStorage.getItem(SOUND_KEY) === 'on',
+  user: null,
   game: null,
   stats: null,
   statsLoading: false,
@@ -118,6 +129,33 @@ export const useStore = create<Store>((set, get) => ({
     localStorage.setItem(SOUND_KEY, next ? 'on' : 'off');
     set({ soundOn: next });
     void applySound(next, get().theme);
+  },
+
+  loadMe: async () => {
+    try {
+      const { user } = await authMe();
+      set({ user: user?.username ?? null });
+    } catch {
+      set({ user: null });
+    }
+  },
+
+  login: async (username, password) => {
+    await authLogin(username, password, get().guestId);
+    set({ user: username });
+    await get().loadStats();
+  },
+
+  register: async (username, password) => {
+    await authRegister(username, password, get().guestId);
+    set({ user: username });
+    await get().loadStats();
+  },
+
+  logout: async () => {
+    await authLogout();
+    set({ user: null });
+    await get().loadStats();
   },
 
   setConservation: (conservation) => {

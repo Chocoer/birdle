@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { birds, getBird } from '../data/birds.js';
-import { recordGame } from '../db.js';
+import { db } from '../db/index.js';
 import type { Bird, ConservationSystem, Difficulty, GameStatus, GuessRow } from '../types.js';
 import { compareBirds } from './compare.js';
 
@@ -108,19 +108,25 @@ function findSession(gameId: string, guestId: string): Session | { error: 'game_
   return s;
 }
 
-function finish(s: Session, status: GameStatus): void {
+function finish(s: Session, status: GameStatus, identity?: string): void {
   s.status = status;
-  recordGame({
-    guestId: s.guestId,
+  // 记账优先用登录身份，其次游客 guestId；写库失败不影响对局
+  db.recordGame({
+    guestId: identity ?? s.guestId,
     difficulty: s.difficulty,
     birdId: s.answerId,
     won: status === 'won',
     guessCount: s.guesses.length,
     date: s.date,
-  });
+  }).catch((err) => console.error('[birdle] recordGame 失败', err));
 }
 
-export function submitGuess(gameId: string, guestId: string, birdId: number): GuessOutcome {
+export function submitGuess(
+  gameId: string,
+  guestId: string,
+  birdId: number,
+  identity?: string,
+): GuessOutcome {
   sweep();
   const found = findSession(gameId, guestId);
   if ('error' in found) return { ok: false, error: found.error };
@@ -135,17 +141,17 @@ export function submitGuess(gameId: string, guestId: string, birdId: number): Gu
   s.guesses.push(compareBirds(guess, answer, s.conservation));
   s.touchedAt = Date.now();
 
-  if (guess.id === answer.id) finish(s, 'won');
-  else if (s.guesses.length >= MAX_GUESSES) finish(s, 'lost');
+  if (guess.id === answer.id) finish(s, 'won', identity);
+  else if (s.guesses.length >= MAX_GUESSES) finish(s, 'lost', identity);
 
   return { ok: true, game: toPublic(s) };
 }
 
 /** 看答案：对局直接结束并揭晓，记为负场 */
-export function revealAnswer(gameId: string, guestId: string): GuessOutcome {
+export function revealAnswer(gameId: string, guestId: string, identity?: string): GuessOutcome {
   sweep();
   const found = findSession(gameId, guestId);
   if ('error' in found) return { ok: false, error: found.error };
-  finish(found, 'revealed');
+  finish(found, 'revealed', identity);
   return { ok: true, game: toPublic(found) };
 }

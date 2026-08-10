@@ -14,7 +14,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, init);
+  const res = await fetch(BASE + path, { credentials: 'include', ...init });
   const data: unknown = await res.json().catch(() => ({}));
   if (!res.ok) {
     const code =
@@ -71,4 +71,38 @@ export function revealAnswer(gameId: string, guestId: string): Promise<GameState
 
 export function getStats(guestId: string): Promise<StatsData> {
   return request(`/stats?guestId=${encodeURIComponent(guestId)}`);
+}
+
+// --- 账号 ---
+
+export function authMe(): Promise<{ user: { username: string } | null }> {
+  return request('/auth/me');
+}
+
+export function authRegister(
+  username: string,
+  password: string,
+  guestId: string,
+): Promise<{ user: { username: string }; merged: number }> {
+  return request('/auth/register', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ username, password, guestId }),
+  });
+}
+
+export function authLogin(
+  username: string,
+  password: string,
+  guestId: string,
+): Promise<{ user: { username: string }; merged: number }> {
+  return request('/auth/login', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ username, password, guestId }),
+  });
+}
+
+export function authLogout(): Promise<{ ok: boolean }> {
+  return request('/auth/logout', { method: 'POST', headers: JSON_HEADERS, body: '{}' });
 }
