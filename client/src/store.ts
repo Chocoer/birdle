@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { applySound } from './audio';
 import {
   ApiError,
   getStats,
@@ -14,6 +15,7 @@ export type Theme = 'light' | 'dark';
 const GUEST_KEY = 'birdle-guestId';
 const THEME_KEY = 'birdle-theme';
 const CONSERVATION_KEY = 'birdle-conservation';
+const SOUND_KEY = 'birdle-sound';
 const GUEST_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
 const FLIP_DURATION_MS = 10 * 120 + 600;
 
@@ -53,6 +55,7 @@ interface Store {
   theme: Theme;
   guestId: string;
   conservation: Conservation;
+  soundOn: boolean;
   game: GameState | null;
   stats: StatsData | null;
   statsLoading: boolean;
@@ -66,6 +69,7 @@ interface Store {
   toggleTheme: () => void;
   syncSystemTheme: () => void;
   setConservation: (conservation: Conservation) => void;
+  toggleSound: () => void;
   showToast: (message: string) => void;
   dismissToast: () => void;
   startGame: (difficulty: Difficulty) => Promise<void>;
@@ -82,6 +86,7 @@ export const useStore = create<Store>((set, get) => ({
   theme: initialTheme(),
   guestId: loadGuestId(),
   conservation: initialConservation(),
+  soundOn: localStorage.getItem(SOUND_KEY) === 'on',
   game: null,
   stats: null,
   statsLoading: false,
@@ -97,10 +102,22 @@ export const useStore = create<Store>((set, get) => ({
     const next: Theme = get().theme === 'dark' ? 'light' : 'dark';
     localStorage.setItem(THEME_KEY, next);
     set({ theme: next });
+    void applySound(get().soundOn, next);
   },
 
   syncSystemTheme: () => {
-    if (!localStorage.getItem(THEME_KEY)) set({ theme: systemTheme() });
+    if (!localStorage.getItem(THEME_KEY)) {
+      const next = systemTheme();
+      set({ theme: next });
+      void applySound(get().soundOn, next);
+    }
+  },
+
+  toggleSound: () => {
+    const next = !get().soundOn;
+    localStorage.setItem(SOUND_KEY, next ? 'on' : 'off');
+    set({ soundOn: next });
+    void applySound(next, get().theme);
   },
 
   setConservation: (conservation) => {

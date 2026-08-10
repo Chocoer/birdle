@@ -520,6 +520,52 @@ button {
   -webkit-overflow-scrolling: touch;
 }
 
+/* 冻结鸟名列：横向滚动时鸟名固定在最左 */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* 滚动提示：默认隐藏，仅小屏显示 */
+.scroll-hint {
+  display: none;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .scroll-hint {
+    display: block;
+  }
+
+  /* 右缘渐隐，暗示可滚动 */
+  .grid-scroll {
+    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+  }
+
+  .guess-grid {
+    min-width: 580px;
+  }
+
+  .cell-inner {
+    min-height: 44px;
+    min-width: 46px;
+    padding: 4px 2px;
+    font-size: 11px;
+  }
+
+  .cell-sci {
+    display: none;
+  }
+}
+
 .guess-grid {
   border-collapse: separate;
   border-spacing: 4px;

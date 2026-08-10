@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Bird, BookOpen, Moon, Sun, User } from 'lucide-react';
+import { Bird, BookOpen, Moon, Sun, User, Volume2, VolumeX } from 'lucide-react';
 import Backdrop from './components/Backdrop';
 import Game from './components/Game';
 import Home from './components/Home';
@@ -17,6 +17,8 @@ export default function App() {
   const toast = useStore((s) => s.toast);
   const setView = useStore((s) => s.setView);
   const toggleTheme = useStore((s) => s.toggleTheme);
+  const soundOn = useStore((s) => s.soundOn);
+  const toggleSound = useStore((s) => s.toggleSound);
   const dismissToast = useStore((s) => s.dismissToast);
 
   useEffect(() => {
@@ -56,6 +58,14 @@ export default function App() {
           <button className="btn btn-ghost" onClick={() => setView('me')} title="我的战绩与设置">
             <User size={16} />
             <span className="nav-btn-text">我的</span>
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={toggleSound}
+            aria-label={soundOn ? '关闭环境音' : '开启环境音'}
+            title={soundOn ? '关闭环境音' : '开启环境音'}
+          >
+            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
           <button
             className="btn btn-ghost"

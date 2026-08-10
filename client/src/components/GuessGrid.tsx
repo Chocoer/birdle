@@ -27,36 +27,41 @@ function Cell({ cell, animate, delay }: { cell: AttrCell; animate: boolean; dela
 export default function GuessGrid({ guesses, animatingRow, conservation }: Props) {
   const conservationHeader = conservation === 'china' ? '国保' : 'IUCN';
   return (
-    <div className="grid-scroll">
-      <table className="guess-grid">
-        <thead>
-          <tr>
-            {HEADERS.map((h, i) => (
-              <th key={i}>{h ?? conservationHeader}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {guesses.map((guess, rowIndex) => (
-            <tr key={`${guess.bird.id}-${rowIndex}`}>
-              <td className="grid-cell cell-name">
-                <div className="cell-inner name">
-                  <span>{guess.bird.name}</span>
-                  <span className="cell-sci">{guess.bird.sciName}</span>
-                </div>
-              </td>
-              {CELL_KEYS.map((key, colIndex) => (
-                <Cell
-                  key={key}
-                  cell={guess.cells[key]}
-                  animate={rowIndex === animatingRow}
-                  delay={colIndex * 120}
-                />
+    <>
+      <div className="grid-scroll">
+        <table className="guess-grid">
+          <thead>
+            <tr>
+              {HEADERS.map((h, i) => (
+                <th key={i} className={i === 0 ? 'sticky-col' : undefined}>
+                  {h ?? conservationHeader}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {guesses.map((guess, rowIndex) => (
+              <tr key={`${guess.bird.id}-${rowIndex}`}>
+                <td className="grid-cell cell-name sticky-col">
+                  <div className="cell-inner name">
+                    <span>{guess.bird.name}</span>
+                    <span className="cell-sci">{guess.bird.sciName}</span>
+                  </div>
+                </td>
+                {CELL_KEYS.map((key, colIndex) => (
+                  <Cell
+                    key={key}
+                    cell={guess.cells[key]}
+                    animate={rowIndex === animatingRow}
+                    delay={colIndex * 120}
+                  />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="scroll-hint">← 左右滑动查看全部属性 →</p>
+    </>
   );
 }
