@@ -130,6 +130,17 @@ export default function Rules() {
         </ul>
       </section>
 
+      <section className="settings-section rules-card">
+        <h3 className="settings-section-title">数据与反馈</h3>
+        <p>
+          题库收录 435 种北京有野生记录的鸟类，分类、居留、保护等级按《中国鸟类分类与分布名录》、
+          IUCN 红色名录和国家重点保护名录整理，体长翼展为典型值。数据持续校订中——
+          如果你发现某只鸟的信息有误，欢迎在
+          <a href="https://github.com/Suyuanzhe/birdle/issues" target="_blank" rel="noreferrer"> GitHub Issues </a>
+          反馈，我们会尽快修正。
+        </p>
+      </section>
+
       <button className="btn" onClick={() => setView('home')}>
         返回首页
       </button>

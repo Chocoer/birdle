@@ -1576,6 +1576,90 @@ button {
   }
 }
 
+/* ===== 手机端猜测卡片（≤640px 替代表格） ===== */
+.guess-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.guess-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.guess-card.new {
+  animation: guess-card-in 0.4s ease;
+}
+
+@keyframes guess-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.guess-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.guess-card-head b {
+  font-size: 16px;
+}
+
+.guess-card-head i {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.guess-card-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.attr-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.attr-chip em {
+  font-style: normal;
+  font-weight: 400;
+  opacity: 0.75;
+  font-size: 11px;
+}
+
+.attr-chip.green {
+  background: var(--cell-green);
+  color: var(--cell-text);
+}
+
+.attr-chip.yellow {
+  background: var(--cell-yellow);
+  color: var(--cell-text);
+}
+
+.attr-chip.gray {
+  background: var(--cell-gray);
+  color: var(--cell-text);
+}
+
+/* ===== 手机端猜测卡片结束 ===== */
+
 /* ===== 小屏适配 ===== */
 @media (max-width: 560px) {
   .home-title {
