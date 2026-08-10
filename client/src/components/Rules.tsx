@@ -106,7 +106,7 @@ export default function Rules() {
           </div>
         </div>
         <p className="settings-hint">
-          在「我的」页面中切换，只影响你自己的判定与显示——联机对战中双方可以各用各的体系
+          在「设置」页面中切换，只影响你自己的判定与显示——联机对战中双方可以各用各的体系
         </p>
       </section>
 

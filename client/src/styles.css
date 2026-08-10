@@ -1063,6 +1063,16 @@ button {
   justify-content: flex-start;
 }
 
+.account-menu-user {
+  margin: 0;
+  padding: 6px 14px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
 .auth-panel {
   display: grid;
   gap: 12px;

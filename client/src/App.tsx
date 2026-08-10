@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
-import { Bird, BookOpen, Moon, Sun, User, Volume2, VolumeX } from 'lucide-react';
+import { Bird, BookOpen, Moon, Settings as SettingsIcon, Sun, Volume2, VolumeX } from 'lucide-react';
 import AccountNav from './components/AccountNav';
 import Backdrop from './components/Backdrop';
 import Game from './components/Game';
 import Home from './components/Home';
-import Me from './components/Me';
 import Lobby from './components/mp/Lobby';
 import MpRoom from './components/mp/MpRoom';
 import Rules from './components/Rules';
+import Settings from './components/Settings';
+import Stats from './components/Stats';
 import { useMpStore } from './mpStore';
 import { useStore } from './store';
 
@@ -57,9 +58,9 @@ export default function App() {
             <BookOpen size={16} />
             <span className="nav-btn-text">规则</span>
           </button>
-          <button className="btn btn-ghost" onClick={() => setView('me')} title="我的战绩与设置">
-            <User size={16} />
-            <span className="nav-btn-text">我的</span>
+          <button className="btn btn-ghost" onClick={() => setView('settings')} title="设置">
+            <SettingsIcon size={16} />
+            <span className="nav-btn-text">设置</span>
           </button>
           <button
             className="btn btn-ghost"
@@ -83,8 +84,10 @@ export default function App() {
       <main className="main">
         {view === 'game' && game ? (
           <Game />
-        ) : view === 'me' ? (
-          <Me />
+        ) : view === 'stats' ? (
+          <Stats />
+        ) : view === 'settings' ? (
+          <Settings />
         ) : view === 'rules' ? (
           <Rules />
         ) : view === 'lobby' ? (
