@@ -1022,14 +1022,51 @@ button {
 }
 
 /* ===== 账号区 ===== */
-.account-card {
-  display: grid;
-  gap: 12px;
-  max-width: 380px;
+.account-nav {
+  position: relative;
+  display: inline-flex;
+}
+
+.account-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 160px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.account-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 41;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 18px 20px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+  min-width: 130px;
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 300px;
 }
 
 .account-tabs {
@@ -1055,14 +1092,6 @@ button {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow);
-}
-
-.account-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .account-error {

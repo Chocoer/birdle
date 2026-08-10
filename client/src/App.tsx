@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Bird, BookOpen, Moon, Sun, User, Volume2, VolumeX } from 'lucide-react';
+import AccountNav from './components/AccountNav';
 import Backdrop from './components/Backdrop';
 import Game from './components/Game';
 import Home from './components/Home';
@@ -76,6 +77,7 @@ export default function App() {
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
+          <AccountNav />
         </div>
       </header>
       <main className="main">

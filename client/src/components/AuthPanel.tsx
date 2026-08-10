@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { LogOut, UserRound } from 'lucide-react';
 import { ApiError } from '../api';
 import { useStore } from '../store';
 
@@ -10,28 +9,32 @@ const ERROR_TEXT: Record<string, string> = {
   rate_limited: '操作太频繁，请稍后再试',
 };
 
-/** 「我的」页顶部账号区：登录/注册或账号信息 */
-export default function Account() {
-  const user = useStore((s) => s.user);
+/** 登录/注册表单（用于导航栏弹窗） */
+export default function AuthPanel({ onDone }: { onDone: () => void }) {
   const login = useStore((s) => s.login);
   const register = useStore((s) => s.register);
-  const logout = useStore((s) => s.logout);
   const showToast = useStore((s) => s.showToast);
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async () => {
     if (busy) return;
+    if (tab === 'register' && password !== confirmPassword) {
+      setError('两次输入的密码不一致');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       if (tab === 'login') await login(username.trim(), password);
       else await register(username.trim(), password);
       showToast(tab === 'login' ? '登录成功' : '注册成功，战绩已绑定账号');
+      onDone();
     } catch (e) {
       setError(e instanceof ApiError ? (ERROR_TEXT[e.code] ?? '操作失败，请稍后再试') : '网络异常');
     } finally {
@@ -39,31 +42,8 @@ export default function Account() {
     }
   };
 
-  if (user) {
-    return (
-      <div className="account-card">
-        <span className="account-user">
-          <UserRound size={18} /> {user}
-        </span>
-        <span className="settings-hint">战绩已绑定账号，换设备登录也能看到</span>
-        <button
-          className="btn"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            void logout()
-              .then(() => showToast('已退出登录'))
-              .finally(() => setBusy(false));
-          }}
-        >
-          <LogOut size={14} /> 退出登录
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="account-card">
+    <div className="auth-panel">
       <div className="account-tabs">
         <button
           className={tab === 'login' ? 'account-tab active' : 'account-tab'}
@@ -102,9 +82,23 @@ export default function Account() {
         autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
         onChange={(e) => setPassword(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') void submit();
+          if (e.key === 'Enter' && tab === 'login') void submit();
         }}
       />
+      {tab === 'register' && (
+        <input
+          className="search-input"
+          type="password"
+          value={confirmPassword}
+          maxLength={72}
+          placeholder="再次输入密码"
+          autoComplete="new-password"
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void submit();
+          }}
+        />
+      )}
       {error && <p className="account-error">{error}</p>}
       <button className="btn btn-primary" disabled={busy} onClick={() => void submit()}>
         {tab === 'login' ? '登录' : '注册'}
