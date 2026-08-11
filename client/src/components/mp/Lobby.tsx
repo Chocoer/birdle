@@ -11,6 +11,15 @@ function defaultName(): string {
   return `玩家${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
+/** 游客昵称：随机生成一次后存 localStorage，保持稳定 */
+function loadGuestName(): string {
+  const saved = localStorage.getItem(MP_NAME_KEY);
+  if (saved) return saved;
+  const name = defaultName();
+  localStorage.setItem(MP_NAME_KEY, name);
+  return name;
+}
+
 export default function Lobby() {
   const createRoom = useMpStore((s) => s.createRoom);
   const joinRoom = useMpStore((s) => s.joinRoom);
@@ -19,9 +28,10 @@ export default function Lobby() {
   const queueStatus = useMpStore((s) => s.queueStatus);
   const connected = useMpStore((s) => s.connected);
   const setView = useStore((s) => s.setView);
+  const user = useStore((s) => s.user);
 
   const [mode, setMode] = useState<LobbyMode>('menu');
-  const [name, setName] = useState(() => localStorage.getItem(MP_NAME_KEY) ?? defaultName());
+  const [guestName] = useState(loadGuestName);
   const [bestOf, setBestOf] = useState<3 | 5>(3);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [roomCode, setRoomCode] = useState('');
@@ -29,7 +39,8 @@ export default function Lobby() {
   const [queueBestOf, setQueueBestOf] = useState<3 | 5>(3);
   const [queueSeconds, setQueueSeconds] = useState(0);
 
-  const playerName = name.trim() || defaultName();
+  // 登录用户用账号名，游客用随机昵称
+  const playerName = user ?? guestName;
 
   useEffect(() => {
     if (queueStatus !== 'queued') {
@@ -40,10 +51,11 @@ export default function Lobby() {
     return () => clearInterval(t);
   }, [queueStatus]);
 
-  const saveName = (value: string) => {
-    setName(value);
-    localStorage.setItem(MP_NAME_KEY, value.trim());
-  };
+  const nameHint = (
+    <p className="lobby-hint">
+      昵称：{playerName}（{user ? '账号名' : '随机生成，登录后自动使用账号名'}）
+    </p>
+  );
 
   const difficultySelect = (value: Difficulty, onChange: (d: Difficulty) => void) => (
     <label className="lobby-label">
@@ -76,25 +88,11 @@ export default function Lobby() {
     </label>
   );
 
-  const nameInput = (
-    <section className="lobby-section">
-      <label className="lobby-label">昵称</label>
-      <input
-        className="search-input"
-        type="text"
-        value={name}
-        maxLength={16}
-        placeholder="输入你的昵称"
-        onChange={(e) => saveName(e.target.value)}
-      />
-    </section>
-  );
-
   if (mode === 'create') {
     return (
       <div className="lobby">
         <h2 className="lobby-title">创建房间</h2>
-        {nameInput}
+        {nameHint}
         <section className="lobby-section">
           <div className="lobby-form">
             {difficultySelect(difficulty, setDifficulty)}
@@ -118,7 +116,7 @@ export default function Lobby() {
     return (
       <div className="lobby">
         <h2 className="lobby-title">快速匹配</h2>
-        {nameInput}
+        {nameHint}
         <section className="lobby-section">
           {queueStatus === 'queued' ? (
             <div className="lobby-queue-waiting">
@@ -157,7 +155,7 @@ export default function Lobby() {
     return (
       <div className="lobby">
         <h2 className="lobby-title">加入房间</h2>
-        {nameInput}
+        {nameHint}
         <section className="lobby-section">
           <div className="lobby-join">
             <input
@@ -188,7 +186,7 @@ export default function Lobby() {
     <div className="lobby">
       <h2 className="lobby-title">联机对战</h2>
       <p className="lobby-hint">{connected ? '已连接服务器' : '正在连接服务器…'}</p>
-      {nameInput}
+      {nameHint}
       {queueStatus === 'queued' && (
         <p className="lobby-hint">
           <Loader2 size={14} className="spin" /> 匹配进行中（已等待 {queueSeconds} 秒），
