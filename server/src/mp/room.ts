@@ -2,7 +2,6 @@ import { getBird } from '../data/birds.js';
 import { compareBirds } from '../game/compare.js';
 import { MAX_GUESSES, poolOf } from '../game/session.js';
 import type { Bird, ConservationSystem } from '../types.js';
-import type { MemoryRoomStore } from './store.js';
 import type { MpPlayer, RedactedRow, Room, RoomConfig, RoomPublic, Round } from './types.js';
 
 /** 断线后重连宽限期（毫秒），超时判负 */
@@ -27,19 +26,24 @@ export type MpError =
   | 'bird_not_found'
   | 'reconnect_failed'
   | 'need_two_players'
-  | 'invalid_payload';
+  | 'invalid_payload'
+  | 'server_unavailable';
 
 export type MpResult<T> = { ok: true; value: T } | { ok: false; error: MpError };
 
-function generateCode(store: MemoryRoomStore): string {
-  for (let i = 0; i < 100; i++) {
-    const code = Array.from(
-      { length: 5 },
-      () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)],
-    ).join('');
-    if (!store.get(code)) return code;
-  }
-  throw new Error('code_exhausted');
+export interface RoomInit {
+  token: string;
+  name: string;
+  socketId: string;
+  config: RoomConfig;
+}
+
+/** 生成一个候选房间码；唯一性由具体存储在写入时原子确认。 */
+export function generateRoomCode(): string {
+  return Array.from(
+    { length: 5 },
+    () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)],
+  ).join('');
 }
 
 export function playerOf(room: Room, token: string): MpPlayer | undefined {
@@ -47,11 +51,11 @@ export function playerOf(room: Room, token: string): MpPlayer | undefined {
 }
 
 export function createRoom(
-  store: MemoryRoomStore,
-  init: { token: string; name: string; socketId: string; config: RoomConfig },
+  code: string,
+  init: RoomInit,
 ): Room {
-  const room: Room = {
-    code: generateCode(store),
+  return {
+    code,
     status: 'waiting',
     config: init.config,
     players: [
@@ -74,8 +78,6 @@ export function createRoom(
     emptySince: null,
     createdAt: Date.now(),
   };
-  store.set(room);
-  return room;
 }
 
 /** 加入房间：未满 2 人成为玩家，否则成为观战者 */
@@ -305,35 +307,46 @@ export interface SweepEvent {
   token?: string;
 }
 
-export function sweepRooms(store: MemoryRoomStore, now: number): SweepEvent[] {
+/** 清扫单个房间并返回状态事件；调用方负责持久化或删除。 */
+export function sweepRoom(room: Room, now: number): { events: SweepEvent[]; destroy: boolean } {
+  const events: SweepEvent[] = [];
+  if (
+    room.status === 'playing' &&
+    room.round &&
+    room.round.winner == null &&
+    now - room.round.startedAt > ROUND_TIME_LIMIT_MS
+  ) {
+    finishRound(room, 'draw');
+    events.push({ code: room.code, type: 'round_timeout' });
+  }
+  for (const p of [...room.players]) {
+    if (p.disconnectedAt != null && now - p.disconnectedAt > RECONNECT_GRACE_MS) {
+      forfeit(room, p.token);
+      events.push({ code: room.code, type: 'forfeit', token: p.token });
+    }
+  }
+  const anyoneHere = room.players.some((p) => p.connected) || room.spectators.length > 0;
+  if (anyoneHere) {
+    room.emptySince = null;
+    return { events, destroy: false };
+  }
+  room.emptySince = room.emptySince ?? now;
+  const destroy = now - room.emptySince > EMPTY_ROOM_TTL_MS;
+  if (destroy) events.push({ code: room.code, type: 'room_destroyed' });
+  return { events, destroy };
+}
+
+/** 内存存储兼容入口，供本地运行和现有测试直接清扫。 */
+export function sweepRooms(
+  store: { values(): Room[]; delete(code: string): void },
+  now: number,
+): SweepEvent[] {
   const events: SweepEvent[] = [];
   for (const room of store.values()) {
-    // 局内倒计时：进行中且超时 → 流局
-    if (
-      room.status === 'playing' &&
-      room.round &&
-      room.round.winner == null &&
-      now - room.round.startedAt > ROUND_TIME_LIMIT_MS
-    ) {
-      finishRound(room, 'draw');
-      events.push({ code: room.code, type: 'round_timeout' });
-    }
-    for (const p of [...room.players]) {
-      if (p.disconnectedAt != null && now - p.disconnectedAt > RECONNECT_GRACE_MS) {
-        forfeit(room, p.token);
-        events.push({ code: room.code, type: 'forfeit', token: p.token });
-      }
-    }
-    const anyoneHere =
-      room.players.some((p) => p.connected) || room.spectators.length > 0;
-    if (!anyoneHere) {
-      room.emptySince = room.emptySince ?? now;
-      if (now - room.emptySince > EMPTY_ROOM_TTL_MS) {
-        store.delete(room.code);
-        events.push({ code: room.code, type: 'room_destroyed' });
-      }
-    } else {
-      room.emptySince = null;
+    const swept = sweepRoom(room, now);
+    events.push(...swept.events);
+    if (swept.destroy) {
+      store.delete(room.code);
     }
   }
   return events;

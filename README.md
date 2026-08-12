@@ -32,7 +32,7 @@
 4. **防窥屏**：对手的猜测只显示颜色块矩阵，不显示鸟名
 5. **断线处理**：30 秒内重连自动恢复身份和猜测历史；超时判负，对手直接获胜
 
-实时通信用 Socket.IO，与单机 HTTP API 共用同一端口。房间状态存内存（`RoomStore` 接口预留 Redis 扩展位），全员离开 5 分钟后自动销毁。环境变量：服务端 `CLIENT_ORIGIN`（CORS 白名单，默认 `http://localhost:5173`）、`PORT`；前端 `VITE_SERVER_URL`（默认同源，开发时 `.env.local` 指向 `http://localhost:3001`）。
+实时通信用 Socket.IO，与单机 HTTP API 共用同一端口。本地默认使用进程内存；配置 `REDIS_URL` 后，单机 Session、房间和匹配队列会写入 Redis，Socket.IO 也通过 Redis Adapter 跨实例广播。全员离开 5 分钟后房间自动销毁。其他环境变量：服务端 `CLIENT_ORIGIN`（CORS 白名单，默认 `http://localhost:5173`）、`PORT`；前端 `VITE_SERVER_URL`（默认同源，开发时 `.env.local` 指向 `http://localhost:3001`）。
 
 ## 技术栈
 
@@ -41,11 +41,16 @@
 | 前端 | React 18 + Vite + TypeScript + Zustand + Socket.IO Client |
 | 后端 | Node.js + Express + Socket.IO + TypeScript |
 | 数据库 | 本地 SQLite（Node 内置 `node:sqlite`）/ 生产 Postgres（`DATABASE_URL` 切换） |
+| 实时状态 | 本地内存 / 生产 Redis（`REDIS_URL` 切换） |
+| 测试 | Vitest |
 
 ## 账号系统
 
-可选登录（不登录也能玩）：用户名 + 密码注册，bcrypt 哈希、JWT HttpOnly Cookie 会话（30 天）。登录/注册时自动把当前浏览器的游客战绩并入账号。生产环境需要两个环境变量：`DATABASE_URL`（Postgres 连接串，如 Neon）和 `JWT_SECRET`（≥32 字节随机串），外加 `NODE_ENV=production`（开启安全 Cookie）。
-| 测试 | Vitest |
+可选登录（不登录也能玩）：用户名 + 密码注册，bcrypt 哈希、JWT HttpOnly Cookie 会话（30 天）。登录/注册时自动把当前浏览器的游客战绩并入账号。生产环境需要 `DATABASE_URL`（Postgres）、`REDIS_URL`（Redis）和 `JWT_SECRET`（≥32 字节随机串），外加 `NODE_ENV=production`（开启安全 Cookie）。
+
+## Vercel 部署
+
+将仓库连接到 Vercel 后可直接从 Git 构建。根 `vercel.json` 会构建 Vite 前端到 `public/`，并把 Express/Socket.IO HTTP Server 部署为同源 Node.js Function；需先在项目中配置上面的三个生产环境变量。
 
 ## 快速开始
 

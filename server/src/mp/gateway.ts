@@ -2,9 +2,9 @@ import type { Server, Socket } from 'socket.io';
 import { getBird } from '../data/birds.js';
 import { MAX_GUESSES } from '../game/session.js';
 import type { ConservationSystem, Difficulty } from '../types.js';
-import { MatchQueue } from './match.js';
+import { createMatchQueue, type MatchQueueStore } from './match.js';
 import * as R from './room.js';
-import { MemoryRoomStore } from './store.js';
+import { createRoomStore, type RoomStore } from './store.js';
 import type { Room } from './types.js';
 
 const TOKEN_RE = /^[A-Za-z0-9-]{8,64}$/;
@@ -12,31 +12,40 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
 const CONSERVATIONS: ConservationSystem[] = ['iucn', 'china'];
 
 export interface GatewayOptions {
-  store?: MemoryRoomStore;
-  queue?: MatchQueue;
+  store?: RoomStore;
+  queue?: MatchQueueStore;
   /** 默认 5000ms；测试可缩短 */
   sweepIntervalMs?: number;
 }
 
-function validName(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length >= 1 && v.trim().length <= 16;
+function validName(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= 16;
+}
+
+function codeOf(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.toUpperCase() : undefined;
+}
+
+function tokenOf(room: Room, socketId: string): string | undefined {
+  return (
+    room.players.find((player) => player.socketId === socketId)?.token ??
+    room.spectators.find((spectator) => spectator.socketId === socketId)?.token
+  );
 }
 
 function nameOf(room: Room, token: string | null): string | null {
   if (token == null) return null;
   return (
-    room.players.find((p) => p.token === token)?.name ??
-    room.spectators.find((s) => s.token === token)?.name ??
+    room.players.find((player) => player.token === token)?.name ??
+    room.spectators.find((spectator) => spectator.token === token)?.name ??
     null
   );
 }
 
-/** 把多人对战网关挂到 Socket.IO 服务上；返回清理函数（测试用） */
+/** 把多人对战网关挂到 Socket.IO；房间码和 socketId 是跨实例恢复身份的唯一依据。 */
 export function attachGateway(io: Server, opts: GatewayOptions = {}): () => void {
-  const store = opts.store ?? new MemoryRoomStore();
-  const queue = opts.queue ?? new MatchQueue();
-  /** socketId → 所在房间与身份（跨连接共享，匹配建房时需要写入他人 ctx） */
-  const contexts = new Map<string, { code?: string; token?: string }>();
+  const store = opts.store ?? createRoomStore();
+  const queue = opts.queue ?? createMatchQueue();
 
   const broadcastUpdate = (room: Room) => {
     io.to(room.code).emit('room-update', { room: R.roomPublic(room) });
@@ -73,231 +82,291 @@ export function attachGateway(io: Server, opts: GatewayOptions = {}): () => void
     });
   };
 
-  /** 尝试配对：成功则建房并把双方拉入 */
-  const tryMatchAndCreate = () => {
-    const pair = queue.tryMatch(Date.now());
+  const fail = (socket: Socket, error: unknown) => {
+    console.error('[birdle] 联机事件处理失败', error);
+    socket.emit('error', { code: 'server_unavailable' satisfies R.MpError });
+  };
+
+  /** 尝试原子出队两人，并通过 Redis Adapter 把跨实例 socket 拉进同一房间。 */
+  const tryMatchAndCreate = async () => {
+    const pair = await queue.tryMatch(Date.now());
     if (!pair) return;
-    const [e1, e2] = pair;
-    const s1 = io.sockets.sockets.get(e1.socketId);
-    const s2 = io.sockets.sockets.get(e2.socketId);
-    // 配对瞬间一方已离线：丢弃离线者，另一方重新入队
-    if (!s1 || !s2) {
-      if (s1) queue.add(e1);
-      if (s2) queue.add(e2);
+    const [first, second] = pair;
+    const [firstSockets, secondSockets] = await Promise.all([
+      io.in(first.socketId).fetchSockets(),
+      io.in(second.socketId).fetchSockets(),
+    ]);
+    if (firstSockets.length === 0 || secondSockets.length === 0) {
+      if (firstSockets.length > 0) await queue.add(first);
+      if (secondSockets.length > 0) await queue.add(second);
       return;
     }
-    const room = R.createRoom(store, {
-      token: e1.token,
-      name: e1.name,
-      socketId: e1.socketId,
-      config: { difficulty: e1.difficulty, bestOf: e1.bestOf },
+
+    const created = await store.create({
+      token: first.token,
+      name: first.name,
+      socketId: first.socketId,
+      config: { difficulty: first.difficulty, bestOf: first.bestOf },
     });
-    R.joinRoom(room, { token: e2.token, name: e2.name, socketId: e2.socketId });
-    for (const [e, s] of [
-      [e1, s1],
-      [e2, s2],
-    ] as const) {
-      void s.join(room.code);
-      // 注意：必须原地更新，连接处理器持有同一对象的引用
-      const ctx = contexts.get(s.id);
-      if (ctx) {
-        ctx.code = room.code;
-        ctx.token = e.token;
-      } else {
-        contexts.set(s.id, { code: room.code, token: e.token });
-      }
-      s.emit('match-found', {
+    const joined = await store.update(created.code, (room) =>
+      R.joinRoom(room, {
+        token: second.token,
+        name: second.name,
+        socketId: second.socketId,
+      }),
+    );
+    if (!joined) throw new Error(`matched_room_missing:${created.code}`);
+    const room = joined.room;
+    await Promise.all([
+      io.in(first.socketId).socketsJoin(room.code),
+      io.in(second.socketId).socketsJoin(room.code),
+    ]);
+    for (const entry of [first, second]) {
+      io.to(entry.socketId).emit('match-found', {
         roomCode: room.code,
         room: R.roomPublic(room),
-        self: { token: e.token, role: 'player' },
+        self: { token: entry.token, role: 'player' },
       });
     }
   };
 
   io.on('connection', (socket: Socket) => {
-    contexts.set(socket.id, {});
-    const ctx = contexts.get(socket.id)!;
     const err = (code: R.MpError) => socket.emit('error', { code });
 
-    const findRoom = (code: unknown): Room | undefined => {
-      const c = typeof code === 'string' ? code.toUpperCase() : ctx.code;
-      return c ? store.get(c) : undefined;
-    };
-
     socket.on('create-room', (payload: unknown) => {
-      const { playerName, token, difficulty, bestOf } = (payload ?? {}) as Record<string, unknown>;
-      if (!validName(playerName) || typeof token !== 'string' || !TOKEN_RE.test(token)) {
-        return err('invalid_payload');
-      }
-      if (!DIFFICULTIES.includes(difficulty as Difficulty)) return err('invalid_payload');
-      if (bestOf !== 3 && bestOf !== 5) return err('invalid_payload');
-      const room = R.createRoom(store, {
-        token,
-        name: playerName.trim(),
-        socketId: socket.id,
-        config: { difficulty: difficulty as Difficulty, bestOf },
-      });
-      ctx.code = room.code;
-      ctx.token = token;
-      void socket.join(room.code);
-      socket.emit('room-created', { roomCode: room.code, room: R.roomPublic(room) });
+      void (async () => {
+        const { playerName, token, difficulty, bestOf } = (payload ?? {}) as Record<string, unknown>;
+        if (!validName(playerName) || typeof token !== 'string' || !TOKEN_RE.test(token)) {
+          return err('invalid_payload');
+        }
+        if (!DIFFICULTIES.includes(difficulty as Difficulty)) return err('invalid_payload');
+        if (bestOf !== 3 && bestOf !== 5) return err('invalid_payload');
+        const room = await store.create({
+          token,
+          name: playerName.trim(),
+          socketId: socket.id,
+          config: { difficulty: difficulty as Difficulty, bestOf },
+        });
+        await socket.join(room.code);
+        socket.emit('room-created', { roomCode: room.code, room: R.roomPublic(room) });
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('join-room', (payload: unknown) => {
-      const { roomCode, playerName, token } = (payload ?? {}) as Record<string, unknown>;
-      if (!validName(playerName) || typeof token !== 'string' || !TOKEN_RE.test(token)) {
-        return err('invalid_payload');
-      }
-      const room = findRoom(roomCode);
-      if (!room) return err('room_not_found');
-      const role = R.joinRoom(room, { token, name: playerName.trim(), socketId: socket.id });
-      ctx.code = room.code;
-      ctx.token = token;
-      void socket.join(room.code);
-      socket.emit('room-update', { room: R.roomPublic(room), self: { token, role } });
-      socket.to(room.code).emit('player-joined', { player: { token, name: playerName.trim() }, role });
-      broadcastUpdate(room);
+      void (async () => {
+        const { roomCode, playerName, token } = (payload ?? {}) as Record<string, unknown>;
+        if (!validName(playerName) || typeof token !== 'string' || !TOKEN_RE.test(token)) {
+          return err('invalid_payload');
+        }
+        const code = codeOf(roomCode);
+        if (!code) return err('room_not_found');
+        const updated = await store.update(code, (room) =>
+          R.joinRoom(room, { token, name: playerName.trim(), socketId: socket.id }),
+        );
+        if (!updated) return err('room_not_found');
+        await socket.join(updated.room.code);
+        socket.emit('room-update', {
+          room: R.roomPublic(updated.room),
+          self: { token, role: updated.value },
+        });
+        socket.to(updated.room.code).emit('player-joined', {
+          player: { token, name: playerName.trim() },
+          role: updated.value,
+        });
+        broadcastUpdate(updated.room);
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('queue-join', (payload: unknown) => {
-      const { playerName, token, difficulty, bestOf } = (payload ?? {}) as Record<string, unknown>;
-      if (!validName(playerName) || typeof token !== 'string' || !TOKEN_RE.test(token)) {
-        return err('invalid_payload');
-      }
-      if (!DIFFICULTIES.includes(difficulty as Difficulty)) return err('invalid_payload');
-      if (bestOf !== 3 && bestOf !== 5) return err('invalid_payload');
-      queue.add({
-        token,
-        name: playerName.trim(),
-        socketId: socket.id,
-        difficulty: difficulty as Difficulty,
-        bestOf,
-      });
-      socket.emit('queue-joined', { difficulty, bestOf });
-      tryMatchAndCreate();
+      void (async () => {
+        const { playerName, token, difficulty, bestOf } = (payload ?? {}) as Record<string, unknown>;
+        if (!validName(playerName) || typeof token !== 'string' || !TOKEN_RE.test(token)) {
+          return err('invalid_payload');
+        }
+        if (!DIFFICULTIES.includes(difficulty as Difficulty)) return err('invalid_payload');
+        if (bestOf !== 3 && bestOf !== 5) return err('invalid_payload');
+        await queue.add({
+          token,
+          name: playerName.trim(),
+          socketId: socket.id,
+          difficulty: difficulty as Difficulty,
+          bestOf,
+        });
+        socket.emit('queue-joined', { difficulty, bestOf });
+        await tryMatchAndCreate();
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('queue-leave', () => {
-      if (ctx.token) queue.remove(ctx.token);
-      socket.emit('queue-left', {});
+      void (async () => {
+        await queue.removeBySocket(socket.id);
+        socket.emit('queue-left', {});
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('start-game', (payload: unknown) => {
-      const room = findRoom((payload as Record<string, unknown> | null)?.roomCode);
-      if (!room) return err('room_not_found');
-      if (!ctx.token) return err('not_in_room');
-      const result = R.startMatch(room, ctx.token);
-      if (!result.ok) return err(result.error);
-      emitGameStarted(room);
-      broadcastUpdate(room);
+      void (async () => {
+        const code = codeOf((payload as Record<string, unknown> | null)?.roomCode);
+        if (!code) return err('room_not_found');
+        const updated = await store.update(code, (room) => {
+          const token = tokenOf(room, socket.id);
+          return token ? R.startMatch(room, token) : ({ ok: false, error: 'not_in_room' } as const);
+        });
+        if (!updated) return err('room_not_found');
+        if (!updated.value.ok) return err(updated.value.error);
+        emitGameStarted(updated.room);
+        broadcastUpdate(updated.room);
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('player-ready', (payload: unknown) => {
-      const room = findRoom((payload as Record<string, unknown> | null)?.roomCode);
-      if (!room) return err('room_not_found');
-      if (!ctx.token) return err('not_in_room');
-      const result = R.markReady(room, ctx.token);
-      if (!result.ok) return err(result.error);
-      if (result.value.nextRoundStarted) emitGameStarted(room);
-      broadcastUpdate(room);
+      void (async () => {
+        const code = codeOf((payload as Record<string, unknown> | null)?.roomCode);
+        if (!code) return err('room_not_found');
+        const updated = await store.update(code, (room) => {
+          const token = tokenOf(room, socket.id);
+          return token ? R.markReady(room, token) : ({ ok: false, error: 'not_in_room' } as const);
+        });
+        if (!updated) return err('room_not_found');
+        if (!updated.value.ok) return err(updated.value.error);
+        if (updated.value.value.nextRoundStarted) emitGameStarted(updated.room);
+        broadcastUpdate(updated.room);
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('submit-guess', (payload: unknown) => {
-      const { roomCode, birdId, conservation } = (payload ?? {}) as Record<string, unknown>;
-      const room = findRoom(roomCode);
-      if (!room) return err('room_not_found');
-      if (!ctx.token) return err('not_in_room');
-      if (typeof birdId !== 'number' || !Number.isInteger(birdId)) return err('bird_not_found');
-      // 保护等级体系按猜测者自己的选择判定；缺省 iucn
-      const system = conservation === undefined ? 'iucn' : conservation;
-      if (!CONSERVATIONS.includes(system as ConservationSystem)) return err('invalid_payload');
-      const result = R.submitGuess(room, ctx.token, birdId, system as ConservationSystem);
-      if (!result.ok) return err(result.error);
-      const { row, roundEnded, roundWinner, matchEnded } = result.value;
-      const count = room.round?.guesses[ctx.token]?.length ?? 0;
-      // 本人收全量行，其他人收脱敏行
-      socket.emit('new-guess', { token: ctx.token, row, count });
-      socket.to(room.code).emit('new-guess', { token: ctx.token, row: R.redactRow(row, Date.now()), count });
-      if (roundEnded) emitRoundEnd(room, roundWinner === 'draw' ? 'draw' : 'won');
-      if (matchEnded) emitMatchEnd(room, 'score');
-      broadcastUpdate(room);
+      void (async () => {
+        const { roomCode, birdId, conservation } = (payload ?? {}) as Record<string, unknown>;
+        const code = codeOf(roomCode);
+        if (!code) return err('room_not_found');
+        if (typeof birdId !== 'number' || !Number.isInteger(birdId)) return err('bird_not_found');
+        const system = conservation ?? 'iucn';
+        if (!CONSERVATIONS.includes(system as ConservationSystem)) return err('invalid_payload');
+        const updated = await store.update(code, (room) => {
+          const token = tokenOf(room, socket.id);
+          if (!token) return { token: null, result: { ok: false, error: 'not_in_room' } as const };
+          return {
+            token,
+            result: R.submitGuess(room, token, birdId, system as ConservationSystem),
+          };
+        });
+        if (!updated) return err('room_not_found');
+        const { token, result } = updated.value;
+        if (!result.ok) return err(result.error);
+        const { row, roundEnded, roundWinner, matchEnded } = result.value;
+        const count = updated.room.round?.guesses[token!]?.length ?? 0;
+        socket.emit('new-guess', { token, row, count });
+        socket.to(updated.room.code).emit('new-guess', {
+          token,
+          row: R.redactRow(row, Date.now()),
+          count,
+        });
+        if (roundEnded) emitRoundEnd(updated.room, roundWinner === 'draw' ? 'draw' : 'won');
+        if (matchEnded) emitMatchEnd(updated.room, 'score');
+        broadcastUpdate(updated.room);
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('request-reconnect', (payload: unknown) => {
-      const { roomCode, playerToken } = (payload ?? {}) as Record<string, unknown>;
-      const room = findRoom(roomCode);
-      if (!room || typeof playerToken !== 'string') return err('reconnect_failed');
-      const result = R.reconnect(room, playerToken, socket.id);
-      if (!result.ok) return err(result.error);
-      ctx.code = room.code;
-      ctx.token = playerToken;
-      void socket.join(room.code);
-      const myGuesses =
-        result.value.role === 'player' && room.round ? (room.round.guesses[playerToken] ?? []) : [];
-      socket.emit('reconnect-success', {
-        room: R.roomPublic(room),
-        myGuesses,
-        self: { token: playerToken, role: result.value.role },
-      });
-      socket.to(room.code).emit('player-joined', {
-        player: { token: playerToken, name: nameOf(room, playerToken) },
-        role: result.value.role,
-        reconnected: true,
-      });
-      broadcastUpdate(room);
+      void (async () => {
+        const { roomCode, playerToken } = (payload ?? {}) as Record<string, unknown>;
+        const code = codeOf(roomCode);
+        if (!code || typeof playerToken !== 'string') return err('reconnect_failed');
+        const updated = await store.update(code, (room) =>
+          R.reconnect(room, playerToken, socket.id),
+        );
+        if (!updated || !updated.value.ok) return err('reconnect_failed');
+        await socket.join(updated.room.code);
+        const myGuesses =
+          updated.value.value.role === 'player' && updated.room.round
+            ? (updated.room.round.guesses[playerToken] ?? [])
+            : [];
+        socket.emit('reconnect-success', {
+          room: R.roomPublic(updated.room),
+          myGuesses,
+          self: { token: playerToken, role: updated.value.value.role },
+        });
+        socket.to(updated.room.code).emit('player-joined', {
+          player: { token: playerToken, name: nameOf(updated.room, playerToken) },
+          role: updated.value.value.role,
+          reconnected: true,
+        });
+        broadcastUpdate(updated.room);
+      })().catch((error) => fail(socket, error));
     });
 
-    socket.on('leave-room', () => {
-      const room = findRoom(undefined);
-      if (!room || !ctx.token) return;
-      if (room.status === 'playing') {
-        const { matchEndedByForfeit } = R.forfeit(room, ctx.token);
-        socket.to(room.code).emit('player-left', { token: ctx.token, reason: 'forfeit' });
-        if (matchEndedByForfeit) emitMatchEnd(room, 'forfeit');
-      } else {
-        R.handleDisconnect(room, ctx.token);
-        socket.to(room.code).emit('player-left', { token: ctx.token, reason: 'left' });
-      }
-      broadcastUpdate(room);
-      void socket.leave(room.code);
-      ctx.code = undefined;
-      ctx.token = undefined;
+    socket.on('leave-room', (payload: unknown) => {
+      void (async () => {
+        const code = codeOf((payload as Record<string, unknown> | null)?.roomCode);
+        if (!code) return;
+        const updated = await store.update(code, (room) => {
+          const token = tokenOf(room, socket.id);
+          if (!token) return { token: null, reason: 'left' as const, matchEnded: false };
+          if (room.status === 'playing') {
+            return {
+              token,
+              reason: 'forfeit' as const,
+              matchEnded: R.forfeit(room, token).matchEndedByForfeit,
+            };
+          }
+          R.handleDisconnect(room, token);
+          return { token, reason: 'left' as const, matchEnded: false };
+        });
+        if (!updated?.value.token) return;
+        socket.to(updated.room.code).emit('player-left', {
+          token: updated.value.token,
+          reason: updated.value.reason,
+        });
+        if (updated.value.matchEnded) emitMatchEnd(updated.room, 'forfeit');
+        broadcastUpdate(updated.room);
+        await socket.leave(updated.room.code);
+      })().catch((error) => fail(socket, error));
     });
 
     socket.on('disconnect', () => {
-      queue.removeBySocket(socket.id);
-      contexts.delete(socket.id);
-      if (!ctx.code || !ctx.token) return;
-      const room = store.get(ctx.code);
-      if (!room) return;
-      const { removed } = R.handleDisconnect(room, ctx.token);
-      io.to(room.code).emit('player-left', {
-        token: ctx.token,
-        reason: removed ? 'left' : 'disconnected',
-      });
-      broadcastUpdate(room);
+      void (async () => {
+        await queue.removeBySocket(socket.id);
+        const room = (await store.values()).find((candidate) => tokenOf(candidate, socket.id));
+        if (!room) return;
+        const updated = await store.update(room.code, (current) => {
+          const token = tokenOf(current, socket.id);
+          return token ? { token, ...R.handleDisconnect(current, token) } : null;
+        });
+        if (!updated?.value) return;
+        io.to(updated.room.code).emit('player-left', {
+          token: updated.value.token,
+          reason: updated.value.removed ? 'left' : 'disconnected',
+        });
+        broadcastUpdate(updated.room);
+      })().catch((error) => console.error('[birdle] 断线清理失败', error));
     });
   });
 
-  const sweepTimer = setInterval(() => {
-    for (const ev of R.sweepRooms(store, Date.now())) {
-      if (ev.type === 'forfeit' && ev.token) {
-        const room = store.get(ev.code);
-        io.to(ev.code).emit('player-left', { token: ev.token, reason: 'forfeit' });
-        if (room) {
-          if (room.status === 'ended' && room.matchWinner) emitMatchEnd(room, 'forfeit');
-          broadcastUpdate(room);
-        }
-      } else if (ev.type === 'round_timeout') {
-        const room = store.get(ev.code);
-        if (room?.round) {
-          emitRoundEnd(room, 'timeout');
-          broadcastUpdate(room);
+  /** 周期性处理超时、断线判负、空房间销毁和放宽匹配。 */
+  const sweep = async () => {
+    const now = Date.now();
+    for (const snapshot of await store.values()) {
+      const updated = await store.update(snapshot.code, (room) => R.sweepRoom(room, now));
+      if (!updated) continue;
+      if (updated.value.destroy) await store.delete(updated.room.code);
+      for (const event of updated.value.events) {
+        if (event.type === 'forfeit' && event.token) {
+          io.to(event.code).emit('player-left', { token: event.token, reason: 'forfeit' });
+          if (updated.room.status === 'ended' && updated.room.matchWinner) {
+            emitMatchEnd(updated.room, 'forfeit');
+          }
+          broadcastUpdate(updated.room);
+        } else if (event.type === 'round_timeout' && updated.room.round) {
+          emitRoundEnd(updated.room, 'timeout');
+          broadcastUpdate(updated.room);
         }
       }
-      // room_destroyed 无需广播（房间里已无人）
     }
-    tryMatchAndCreate();
+    await tryMatchAndCreate();
+  };
+
+  const sweepTimer = setInterval(() => {
+    void sweep().catch((error) => console.error('[birdle] 联机状态清扫失败', error));
   }, opts.sweepIntervalMs ?? 5000);
   sweepTimer.unref();
 

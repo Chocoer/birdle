@@ -72,6 +72,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   bird_not_found: '没有找到这种鸟',
   reconnect_failed: '恢复房间失败，房间可能已解散',
   need_two_players: '需要两名玩家才能开始',
+  server_unavailable: '联机服务暂时不可用，请稍后重试',
 };
 
 interface MpStore {
@@ -332,7 +333,7 @@ export const useMpStore = create<MpStore>((set, get) => ({
   },
 
   leaveRoom: () => {
-    getSocket().emit('leave-room');
+    getSocket().emit('leave-room', { roomCode: get().room?.code });
     forgetRoom();
     if (flipTimer) clearTimeout(flipTimer);
     set({

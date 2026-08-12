@@ -1,15 +1,23 @@
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { db } from '../db/index.js';
+import { getRedis } from '../redis.js';
 import { AUTH_COOKIE, signToken, verifyToken } from './jwt.js';
 
 const USERNAME_RE = /^[\w一-龥-]{2,16}$/;
 const GUEST_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
 
-/** 简单滑动窗口限流：每 IP 每分钟 10 次，防爆破 */
+/** 每 IP 每分钟 10 次：生产用 Redis 分钟桶，本地用内存滑动窗口。 */
 const hits = new Map<string, number[]>();
-function rateLimited(ip: string): boolean {
+async function rateLimited(ip: string): Promise<boolean> {
+  const redis = getRedis();
+  if (redis) {
+    const key = `birdle:auth-rate:${ip}:${Math.floor(Date.now() / 60_000)}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, 60);
+    return count > 10;
+  }
   const now = Date.now();
   const window = (hits.get(ip) ?? []).filter((t) => now - t < 60_000);
   window.push(now);
@@ -38,12 +46,13 @@ export function authIdentity(req: Request): string | null {
 export const authRouter = Router();
 
 /** 只对注册/登录（爆破目标）限流 */
-function guard(req: Request, res: Response, next: () => void): void {
-  if (rateLimited(req.ip ?? 'unknown')) {
-    res.status(429).json({ error: 'rate_limited' });
-    return;
-  }
-  next();
+function guard(req: Request, res: Response, next: NextFunction): void {
+  void rateLimited(req.ip ?? 'unknown')
+    .then((limited) => {
+      if (limited) res.status(429).json({ error: 'rate_limited' });
+      else next();
+    })
+    .catch(next);
 }
 
 function parseBody(req: Request): { username: string; password: string; guestId?: string } | null {
