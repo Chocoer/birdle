@@ -52,6 +52,17 @@
 
 将仓库连接到 Vercel 后可直接从 Git 构建。根 `vercel.json` 会构建 Vite 前端到 `public/`，并把 Express/Socket.IO HTTP Server 部署为同源 Node.js Function；需先在项目中配置上面的三个生产环境变量。
 
+## Cloudflare 实验入口
+
+`cloudflare/` 中的 Worker 会把 HTTP、API 和 WebSocket 代理到正式 Vercel 源站，并在 Cloudflare 边缘缓存静态资源：
+
+```bash
+node --test cloudflare/worker.test.mjs
+npx wrangler deploy --config cloudflare/wrangler.jsonc
+```
+
+`workers.dev` 入口只用于连通性实验。普通 Cloudflare 全球网络不等同于 China Network，不能据此承诺中国大陆稳定访问；正式大陆接入仍需要自有 ICP 备案域名、Cloudflare Enterprise、China Network，以及境外动态 API/WebSocket 所需的 CDN Global Acceleration。
+
 ## 快速开始
 
 环境要求：Node.js ≥ 22.5（`node:sqlite`）、pnpm。
