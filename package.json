@@ -2,6 +2,7 @@
   "name": "birdle",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "description": "鹬一把 —— 猜北京地区鸟类的 Wordle 式游戏",
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
