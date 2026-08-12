@@ -161,12 +161,14 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 export function createBirdleServer() {
   const httpServer = createServer(app);
   const io = new IoServer(httpServer, {
+    transports: ['websocket'],
     cors: { origin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173' },
   });
   const redis = getRedis();
   if (redis) {
-    const pubClient = redis.duplicate();
-    const subClient = redis.duplicate();
+    // Pub/Sub 是长连接，不能继承普通命令的 5 秒超时，否则 Adapter 的异步发布会触发未处理拒绝。
+    const pubClient = redis.duplicate({ commandTimeout: undefined });
+    const subClient = redis.duplicate({ commandTimeout: undefined });
     pubClient.on('error', (error) => console.error('[birdle] Socket.IO Redis 发布失败', error));
     subClient.on('error', (error) => console.error('[birdle] Socket.IO Redis 订阅失败', error));
     io.adapter(createAdapter(pubClient, subClient));
