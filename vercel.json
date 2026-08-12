@@ -6,6 +6,7 @@
   "regions": ["iad1"],
   "functions": {
     "index.ts": {
+      "includeFiles": "public/**",
       "maxDuration": 300
     }
   }

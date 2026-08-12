@@ -141,7 +141,11 @@ app.get(
 
 // 本地生产运行仍从 client/dist 提供前端；Vercel 使用根 public/ 的 CDN。
 const here = dirname(fileURLToPath(import.meta.url));
-for (const candidate of [join(here, '..', '..', 'client', 'dist'), join(here, '..', 'client', 'dist')]) {
+for (const candidate of [
+  join(here, '..', '..', 'public'),
+  join(here, '..', '..', 'client', 'dist'),
+  join(here, '..', 'client', 'dist'),
+]) {
   if (!existsSync(join(candidate, 'index.html'))) continue;
   app.use(express.static(candidate));
   app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(join(candidate, 'index.html')));
