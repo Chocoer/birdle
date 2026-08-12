@@ -9,6 +9,9 @@
     "test": "pnpm -r run test",
     "start": "pnpm --filter server run start"
   },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
   "engines": {
     "node": "22.x"
   },
