@@ -121,7 +121,9 @@ type GuessError =
   | 'forbidden'
   | 'duplicate_guess';
 
-export type GuessOutcome = { ok: true; game: PublicGame } | { ok: false; error: GuessError };
+export type GuessOutcome =
+  | { ok: true; game: PublicGame; error?: never }
+  | { ok: false; error: GuessError; game?: never };
 type MutationOutcome = { ok: true } | { ok: false; error: GuessError };
 
 function validateSession(
